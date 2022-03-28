@@ -1,9 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="utf-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+{{include "/templates/meta.html"}}
 
 	<title>Dave's fantastic website</title>
 
@@ -15,6 +13,15 @@
 			<h1>Painter Pro&trade;</h1>
 			<hr>
 			<p>The greatest scam ever</p>
+			<h2>My experimental form</h2>
+			<form action="/index.html" method="post" autocomplete="off">
+				<fieldset>
+					<legend>Here it is</legend>
+					<label for="name">Enter your name here: </label>
+					<input type="text" name="name" placeholder="My awsome name" required>
+					<input type="submit" value="Send">
+				</fieldset>
+			</form>
 			<img src="/assets/paint.png">
 		</article>
 	</main>
