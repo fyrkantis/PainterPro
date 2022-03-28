@@ -1,1 +1,2 @@
-PainterPro
+# PainterPro
+*The greatest scam ever.*
