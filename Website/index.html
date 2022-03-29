@@ -5,7 +5,9 @@
 
 	<title>Dave's fantastic website</title>
 
-	<link rel="stylesheet" href="/css/style.css">
+	<link rel="stylesheet" href="/style.css">
+
+	<script src="/script.js" type="module"></script>
 </head>
 <body>
 	<main>
@@ -22,7 +24,8 @@
 					<input type="submit" value="Send">
 				</fieldset>
 			</form>
-			<img src="/assets/paint.png">
+			<canvas id="paintingCanvas"></canvas>
+			<img id="paintingImage" src="/assets/painting.png" style="display: none;">
 		</article>
 	</main>
 </body>
