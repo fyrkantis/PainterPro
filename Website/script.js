@@ -1,51 +1,100 @@
 ﻿var canvas = document.getElementById("paintingCanvas");
 var ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
 
-var width = 500;
+var width = 500; // TODO: Replace with ctx parameter.
 
 var image = document.getElementById("paintingImage");
-var imageX = 0;
-var imageY = 0;
+var imageX = 0.5;
+var imageY = 0.5;
+var imageWidth = width;
+var imageHeight = width;
+var imageZoom = 1;
 
 // Re-draws everything on the canvas.
 function draw() {
 	ctx.clearRect(0, 0, width, width);
-	ctx.drawImage(image, imageX, imageY); // TODO: Use ImageData instead.
+	imageWidth = image.width * imageZoom;
+	imageHeight = image.height * imageZoom;
+	ctx.drawImage(image, Math.floor(imageX * width - imageWidth / 2), Math.floor(imageY * width - imageHeight / 2), imageWidth, imageHeight);
+
+	// Makes the individual pixels more clear.
+	// https://stackoverflow.com/a/19129822/13347795
+	ctx.imageSmoothingEnabled = false;
+	ctx.msImageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
 }
 
-// Handles mouse dragging.
-var mouseX = 0;
-var mouseY = 0;
-var mouseDrag = false;
+// Handles dragging.
 
-function moveMouse(event) {
-	if (mouseDrag) {
-		imageX += event.offsetX - mouseX;
-		imageY += event.offsetY - mouseY;
-		mouseX = event.offsetX;
-		mouseY = event.offsetY;
-	}
-	draw();
-}
-
-canvas.addEventListener("mousedown", function (event) {
-	mouseDrag = true;
-	mouseX = event.offsetX;
-	mouseY = event.offsetY;
-});
-
-canvas.addEventListener("mousemove", moveMouse);
-canvas.onwheel = function (event) {
-	event.preventDefault(); // Prevents scrolling when over canvas.
+// Prevents page scrolling when over canvas.
+canvas.onwheel = function (e) {
+	e.preventDefault();
+};
+canvas.ontouchmove = function (e) {
+	e.preventDefault();
 };
 
-canvas.addEventListener("mouseup", function () {
-	mouseDrag = false;
+// Mouse dragging support.
+var mouseDrag = false;
+var mouseX = 0;
+var mouseY = 0;
+canvas.addEventListener("mousemove", function (e) {
+	if (mouseDrag) {
+		imageX += (e.offsetX - mouseX) / width;
+		imageY += (e.offsetY - mouseY) / width;
+		draw();
+	}
+	mouseX = e.offsetX;
+	mouseY = e.offsetY;
+});
+canvas.addEventListener("mousedown", function (e) {
+	mouseX = e.offsetX;
+	mouseY = e.offsetY;
+	mouseDrag = true
+});
+canvas.addEventListener("mouseup", function (e) {
+	mouseDrag = false
+});
+canvas.addEventListener("mouseleave", function (e) {
+	mouseDrag = false
+});
+canvas.addEventListener("wheel", function (e) {
+	if (e.deltaY > 0) {
+		imageZoom /= 2;
+	} else if (e.deltaY < 0) {
+		imageZoom *= 2;
+	}
+	draw();
 });
 
-canvas.addEventListener("mouseleave", function () {
-	mouseDrag = false
+// Touchscreen dragging support.
+var touchDrag = false;
+var touchX = 0;
+var touchY = 0;
+function handleTouch(e) {
+	touchDrag = e.touches.length == 1;
+	if (touchDrag) {
+		imageX += (e.touches[0].clientX - touchX) / width;
+		imageY += (e.touches[0].clientY - touchY) / width;
+		touchX = e.touches[0].clientX;
+		touchY = e.touches[0].clientY;
+		draw();
+	}
+}
+canvas.addEventListener("touchmove", handleTouch);
+canvas.addEventListener("touchstart", function (e) {
+	touchDrag = e.touches.length == 1;
+	if (touchDrag) {
+		touchX = e.touches[0].clientX;
+		touchY = e.touches[0].clientY;
+	}
+});
+canvas.addEventListener("touchend", handleTouch);
+canvas.addEventListener("touchcancel", handleTouch);
+
+canvas.addEventListener("gesturechange", function (e) {
+	imageZoom = e.scale; // Currently untested.
 });
 
 // Resizes the canvas when the window is resized.
@@ -61,4 +110,4 @@ function resize() {
 }
 
 resize();
-window.onresize = resize;
+window.addEventListener("resize", resize);
