@@ -41,16 +41,16 @@ var mouseX = 0;
 var mouseY = 0;
 canvas.addEventListener("mousemove", function (e) {
 	if (mouseDrag) {
-		imageX += (e.offsetX - mouseX) / width;
-		imageY += (e.offsetY - mouseY) / width;
+		imageX += (e.x - mouseX) / width;
+		imageY += (e.y - mouseY) / width;
 		draw();
 	}
-	mouseX = e.offsetX;
-	mouseY = e.offsetY;
+	mouseX = e.x;
+	mouseY = e.y;
 });
 canvas.addEventListener("mousedown", function (e) {
-	mouseX = e.offsetX;
-	mouseY = e.offsetY;
+	mouseX = e.x;
+	mouseY = e.y;
 	mouseDrag = true
 });
 canvas.addEventListener("mouseup", function (e) {
@@ -75,6 +75,7 @@ var touchY = 0;
 function handleTouch(e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
+		console.log(e.touches[0]);
 		imageX += (e.touches[0].clientX - touchX) / width;
 		imageY += (e.touches[0].clientY - touchY) / width;
 		touchX = e.touches[0].clientX;
@@ -97,7 +98,13 @@ canvas.addEventListener("gesturechange", function (e) {
 	imageZoom = e.scale; // Currently untested.
 });
 
-// Resizes the canvas when the window is resized.
+// Point selection.
+/*canvas.addEventListener("click", function (e) {
+	console.log(e);
+});*/
+
+// Resizing support.
+
 function resize() {
 	let holder = canvas.parentElement;
 	let style = getComputedStyle(holder);
@@ -108,6 +115,5 @@ function resize() {
 	canvas.height = width;
 	draw();
 }
-
 resize();
 window.addEventListener("resize", resize);
