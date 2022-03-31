@@ -5,22 +5,19 @@ var image = { element: document.getElementById("paintingImage") };
 var width = 500; // TODO: Replace with ctx parameter.
 
 // Gets mouse coordinates on canvas.
-function getMousePos(e) {
-	var rect = canvas.getBoundingClientRect();
-	return {
-		x: e.clientX - rect.left,
-		y: e.clientY - rect.top
-	};
+function getCanvasPos(e) {
+	let rect = canvas.getBoundingClientRect();
+	return { clientX: e.clientX - rect.left, clientY: e.clientY - rect.top };
 }
 
-function Point(other = { x: 0, y: 0 }) {
-	this.x = other.x;
-	this.y = other.y;
+function Point(other) {
+	this.x = other.clientX;
+	this.y = other.clientY;
 	this.getDistance = function (other) {
-		return Math.sqrt(Math.pow(other.x - this.x, 2) + Math.pow(other.y - this.y, 2));
+		return Math.sqrt(Math.pow(other.clientX - this.x, 2) + Math.pow(other.clientY - this.y, 2));
 	}
 	this.getDistanceXY = function (other) {
-		return { x: other.x - this.x, y: other.y - this.y };
+		return { x: other.clientX - this.x, y: other.clientY - this.y };
 	},
 	this.toScale = function () {
 		return { x: Math.floor((this.x - image.pos.x) / pos.scale), y: Math.floor((this.y - image.pos.y) / pos.scale) };
@@ -82,23 +79,22 @@ var mouseDrag = false;
 var mouseLastPos;
 var mouseStartPos;
 canvas.addEventListener("mousemove", function (e) {
-	var mousePos = getMousePos(e);
+	let canvasPos = getCanvasPos(e);
 	if (mouseLastPos != null && mouseDrag) {
-		
-		pos.move(mouseLastPos.getDistanceXY(mousePos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
+		pos.move(mouseLastPos.getDistanceXY(canvasPos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
 		draw();
 	}
-	mouseLastPos = new Point(mousePos);
+	mouseLastPos = new Point(canvasPos);
 });
 canvas.addEventListener("mousedown", function (e) {
-	var mousePos = getMousePos(e);
-	mouseLastPos = new Point(mousePos);
-	mouseStartPos = new Point(mousePos);
+	let canvasPos = getCanvasPos(e);
+	mouseLastPos = new Point(canvasPos);
+	mouseStartPos = new Point(canvasPos);
 	mouseDrag = true;
 });
 canvas.addEventListener("mouseup", function (e) {
-	if (mouseStartPos != null && mouseStartPos.getDistance(getMousePos(e)) <= 10) {
-		var imagePoint = mouseStartPos.toScale();
+	if (mouseStartPos != null && mouseStartPos.getDistance(getCanvasPos(e)) <= 10) {
+		let imagePoint = mouseStartPos.toScale();
 		if (points.filter(function (element) {
 			return element.x == imagePoint.x && element.y == imagePoint.y;
 		}).length > 0) {
@@ -120,38 +116,39 @@ canvas.addEventListener("mouseleave", function (e) {
 	mouseStartPos = null;
 	mouseDrag = false
 });
-canvas.addEventListener("wheel", function (e) {
+canvas.addEventListener("wheel", function (e) { // TODO: Reposition image so that mouse is at center of zoom.
 	pos.zoom(e.deltaY);
 	draw();
 });
 
 // Touchscreen dragging support.
 var touchDrag = false;
-var touchX = 0;
-var touchY = 0;
+var touchLastPos;
 function handleTouch(e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
-		imageX += (e.touches[0].clientX - touchX) / width;
-		imageY += (e.touches[0].clientY - touchY) / width;
-		touchX = e.touches[0].clientX;
-		touchY = e.touches[0].clientY;
+		pos.move(touchLastPos.getDistanceXY(getCanvasPos(e.touches[0])));
 		draw();
+		touchLastPos = new Point(getCanvasPos(e.touches[0]));
+	} else {
+		touchLastPos = null;
 	}
+	
 }
 canvas.addEventListener("touchmove", handleTouch);
 canvas.addEventListener("touchstart", function (e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
-		touchX = e.touches[0].clientX;
-		touchY = e.touches[0].clientY;
+		touchLastPos = new Point(getCanvasPos(e.touches[0]));
+	} else {
+		touchLastPos = null;
 	}
 });
 canvas.addEventListener("touchend", handleTouch);
 canvas.addEventListener("touchcancel", handleTouch);
 
 canvas.addEventListener("gesturechange", function (e) {
-	imageZoom = e.scale; // Currently untested.
+	pos.scale = e.scale; // Currently untested.
 });
 
 // Resizing support.
