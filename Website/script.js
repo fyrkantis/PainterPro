@@ -1,21 +1,65 @@
 ﻿var canvas = document.getElementById("paintingCanvas");
 var ctx = canvas.getContext("2d");
+var image = { element: document.getElementById("paintingImage") };
 
 var width = 500; // TODO: Replace with ctx parameter.
 
-var image = document.getElementById("paintingImage");
-var imageX = 0.5;
-var imageY = 0.5;
-var imageWidth = width;
-var imageHeight = width;
-var imageZoom = 1;
+// Gets mouse coordinates on canvas.
+function getMousePos(e) {
+	var rect = canvas.getBoundingClientRect();
+	return {
+		x: e.clientX - rect.left,
+		y: e.clientY - rect.top
+	};
+}
+
+function Point(other = { x: 0, y: 0 }) {
+	this.x = other.x;
+	this.y = other.y;
+	this.getDistance = function (other) {
+		return Math.sqrt(Math.pow(other.x - this.x, 2) + Math.pow(other.y - this.y, 2));
+	}
+	this.getDistanceXY = function (other) {
+		return { x: other.x - this.x, y: other.y - this.y };
+	},
+	this.toScale = function () {
+		return { x: Math.floor((this.x - image.pos.x) / pos.scale), y: Math.floor((this.y - image.pos.y) / pos.scale) };
+	}
+}
+
+// The global transformation of everything.
+var pos = {
+	x: 0.5,
+	y: 0.5,
+	scale: 1,
+	move: function (distance) {
+		this.x += distance.x / width;
+		this.y += distance.y / width;
+	},
+	zoom: function (amount) {
+		if (amount > 0) {
+			this.scale /= 2;
+		} else if (amount < 0) {
+			this.scale *= 2;
+		}
+	}
+};
+
+var points = [];
 
 // Re-draws everything on the canvas.
 function draw() {
 	ctx.clearRect(0, 0, width, width);
-	imageWidth = image.width * imageZoom;
-	imageHeight = image.height * imageZoom;
-	ctx.drawImage(image, Math.floor(imageX * width - imageWidth / 2), Math.floor(imageY * width - imageHeight / 2), imageWidth, imageHeight);
+
+	image.size = { x: image.element.width * pos.scale, y: image.element.height * pos.scale }
+	image.pos = { x: pos.x * width - image.size.x / 2, y: pos.y * width - image.size.y / 2 }
+
+	ctx.drawImage(image.element, image.pos.x, image.pos.y, image.size.x, image.size.y);
+
+	ctx.fillStyle = "#ff0000";
+	points.forEach(function (value) {
+		ctx.fillRect(image.pos.x + value.x * pos.scale, image.pos.y + value.y * pos.scale, pos.scale, pos.scale);
+	});
 
 	// Makes the individual pixels more clear.
 	// https://stackoverflow.com/a/19129822/13347795
@@ -25,8 +69,6 @@ function draw() {
 	ctx.webkitImageSmoothingEnabled = false;
 }
 
-// Handles dragging.
-
 // Prevents page scrolling when over canvas.
 canvas.onwheel = function (e) {
 	e.preventDefault();
@@ -35,36 +77,51 @@ canvas.ontouchmove = function (e) {
 	e.preventDefault();
 };
 
-// Mouse dragging support.
+// Mouse support.
 var mouseDrag = false;
-var mouseX = 0;
-var mouseY = 0;
+var mouseLastPos;
+var mouseStartPos;
 canvas.addEventListener("mousemove", function (e) {
-	if (mouseDrag) {
-		imageX += (e.x - mouseX) / width;
-		imageY += (e.y - mouseY) / width;
+	var mousePos = getMousePos(e);
+	if (mouseLastPos != null && mouseDrag) {
+		
+		pos.move(mouseLastPos.getDistanceXY(mousePos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
 		draw();
 	}
-	mouseX = e.x;
-	mouseY = e.y;
+	mouseLastPos = new Point(mousePos);
 });
 canvas.addEventListener("mousedown", function (e) {
-	mouseX = e.x;
-	mouseY = e.y;
-	mouseDrag = true
+	var mousePos = getMousePos(e);
+	mouseLastPos = new Point(mousePos);
+	mouseStartPos = new Point(mousePos);
+	mouseDrag = true;
 });
 canvas.addEventListener("mouseup", function (e) {
+	if (mouseStartPos != null && mouseStartPos.getDistance(getMousePos(e)) <= 10) {
+		var imagePoint = mouseStartPos.toScale();
+		if (points.filter(function (element) {
+			return element.x == imagePoint.x && element.y == imagePoint.y;
+		}).length > 0) {
+			console.log("Point already exists.");
+		}
+		else if (imagePoint.x >= 0 && imagePoint.y >= 0 && imagePoint.x < image.element.width && imagePoint.y < image.element.height) {
+			points.push(imagePoint);
+			draw();
+		} else {
+			console.log("Point out of bounds.");
+		}
+	}
+	mouseLastPos = null
+	mouseStartPos = null;
 	mouseDrag = false
 });
 canvas.addEventListener("mouseleave", function (e) {
+	mouseLastPos = null
+	mouseStartPos = null;
 	mouseDrag = false
 });
 canvas.addEventListener("wheel", function (e) {
-	if (e.deltaY > 0) {
-		imageZoom /= 2;
-	} else if (e.deltaY < 0) {
-		imageZoom *= 2;
-	}
+	pos.zoom(e.deltaY);
 	draw();
 });
 
@@ -75,7 +132,6 @@ var touchY = 0;
 function handleTouch(e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
-		console.log(e.touches[0]);
 		imageX += (e.touches[0].clientX - touchX) / width;
 		imageY += (e.touches[0].clientY - touchY) / width;
 		touchX = e.touches[0].clientX;
@@ -97,11 +153,6 @@ canvas.addEventListener("touchcancel", handleTouch);
 canvas.addEventListener("gesturechange", function (e) {
 	imageZoom = e.scale; // Currently untested.
 });
-
-// Point selection.
-/*canvas.addEventListener("click", function (e) {
-	console.log(e);
-});*/
 
 // Resizing support.
 
