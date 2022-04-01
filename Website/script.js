@@ -34,10 +34,24 @@ var pos = {
 		this.y += distance.y / width;
 	},
 	zoom: function (amount) {
+		let factor = 1;
 		if (amount > 0) {
-			this.scale /= 2;
+			factor /= 2;
 		} else if (amount < 0) {
-			this.scale *= 2;
+			factor *= 2;
+		}
+		this.scale *= factor;
+		if (mouseLastPos != null) {
+			// Some math to determine how the image should be moved to center the mouse while zooming.
+			// https://www.desmos.com/calculator/1asmalviop
+			// It's still a bit messed up.
+			let vf = ((- 4 / 3) * factor + 5 / 3);
+			console.log({ c: mouseLastPos.x / width, i: (image.size.x / width) , f: factor, vf: vf});
+			console.log((mouseLastPos.x / width - 0.5) * (image.size.x / width) / vf);
+			this.x += (mouseLastPos.x / width - 0.5) * (image.size.x / width) / vf;
+			this.y += (mouseLastPos.y / width - 0.5) * (image.size.y / width) / vf;
+		} else {
+			console.log("No mouse position to scroll from.");
 		}
 	}
 };
@@ -107,12 +121,10 @@ canvas.addEventListener("mouseup", function (e) {
 			console.log("Point out of bounds.");
 		}
 	}
-	mouseLastPos = null
 	mouseStartPos = null;
 	mouseDrag = false
 });
 canvas.addEventListener("mouseleave", function (e) {
-	mouseLastPos = null
 	mouseStartPos = null;
 	mouseDrag = false
 });
@@ -158,7 +170,7 @@ function resize() {
 	let style = getComputedStyle(holder);
 
 	// Calculates the width that should be taken by canvas: the holders width - padding - 4 pixels for the canvas border.
-	width = Math.floor(holder.getBoundingClientRect().width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
+	width = 500;//Math.floor(holder.getBoundingClientRect().width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
 	canvas.width = width;
 	canvas.height = width;
 	draw();
