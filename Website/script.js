@@ -5,23 +5,35 @@ var image = { element: document.getElementById("paintingImage") };
 var width = 500; // TODO: Replace with ctx parameter.
 
 // Gets mouse coordinates on canvas.
-function getCanvasPos(e) {
+function getCanvasPos(point) {
 	let rect = canvas.getBoundingClientRect();
-	return { clientX: e.clientX - rect.left, clientY: e.clientY - rect.top };
+	return { x: point.x - rect.left, y: point.y - rect.top };
+}
+function getEventCanvasPos(e) {
+	return getCanvasPos({ x: e.clientX, y: e.clientY })
 }
 
-function Point(other) {
-	this.x = other.clientX;
-	this.y = other.clientY;
-	this.getDistance = function (other) {
-		return Math.sqrt(Math.pow(other.clientX - this.x, 2) + Math.pow(other.clientY - this.y, 2));
+function Position(point) {
+	this.x = point.x;
+	this.y = point.y;
+	this.getDistance = function (point) {
+		return Math.sqrt(Math.pow(point.x - this.x, 2) + Math.pow(point.y - this.y, 2));
 	}
-	this.getDistanceXY = function (other) {
-		return { x: other.clientX - this.x, y: other.clientY - this.y };
+	this.getEventDistance = function (e) {
+		return this.getDistance({ x: e.clientX, y: e.clientY });
+	},
+	this.getDistanceXY = function (point) {
+		return { x: point.x - this.x, y: point.y - this.y };
+	},
+	this.getEventDistanceXY = function (e) {
+		return this.getDistanceXY({ x: e.clientX, y: e.clientY });
 	},
 	this.toScale = function () {
 		return { x: Math.floor((this.x - image.pos.x) / pos.scale), y: Math.floor((this.y - image.pos.y) / pos.scale) };
 	}
+}
+function EventPosition(e) {
+	return Position({ x: e.clientX, y: e.clientY });
 }
 
 // The global transformation of everything.
@@ -42,14 +54,10 @@ var pos = {
 		}
 		this.scale *= factor;
 		if (mouseLastPos != null) {
-			// Some math to determine how the image should be moved to center the mouse while zooming.
-			// https://www.desmos.com/calculator/1asmalviop
-			// It's still a bit messed up.
-			let vf = ((- 4 / 3) * factor + 5 / 3);
-			console.log({ c: mouseLastPos.x / width, i: (image.size.x / width) , f: factor, vf: vf});
-			console.log((mouseLastPos.x / width - 0.5) * (image.size.x / width) / vf);
-			this.x += (mouseLastPos.x / width - 0.5) * (image.size.x / width) / vf;
-			this.y += (mouseLastPos.y / width - 0.5) * (image.size.y / width) / vf;
+			
+			// https://stackoverflow.com/a/30039971/13347795
+			this.x = (image.pos.x - (mouseLastPos.x - image.pos.x - image.size.x / 2) * (factor - 1) + image.size.x / 2) / width;
+			this.y = (image.pos.y - (mouseLastPos.y - image.pos.y - image.size.x / 2) * (factor - 1) + image.size.y / 2) / width;
 		} else {
 			console.log("No mouse position to scroll from.");
 		}
@@ -93,21 +101,21 @@ var mouseDrag = false;
 var mouseLastPos;
 var mouseStartPos;
 canvas.addEventListener("mousemove", function (e) {
-	let canvasPos = getCanvasPos(e);
+	let canvasPos = getEventCanvasPos(e);
 	if (mouseLastPos != null && mouseDrag) {
 		pos.move(mouseLastPos.getDistanceXY(canvasPos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
 		draw();
 	}
-	mouseLastPos = new Point(canvasPos);
+	mouseLastPos = new Position(canvasPos);
 });
 canvas.addEventListener("mousedown", function (e) {
-	let canvasPos = getCanvasPos(e);
-	mouseLastPos = new Point(canvasPos);
-	mouseStartPos = new Point(canvasPos);
+	let canvasPos = getEventCanvasPos(e);
+	mouseLastPos = new Position(canvasPos);
+	mouseStartPos = new Position(canvasPos);
 	mouseDrag = true;
 });
 canvas.addEventListener("mouseup", function (e) {
-	if (mouseStartPos != null && mouseStartPos.getDistance(getCanvasPos(e)) <= 10) {
+	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e)) <= 10) {
 		let imagePoint = mouseStartPos.toScale();
 		if (points.filter(function (element) {
 			return element.x == imagePoint.x && element.y == imagePoint.y;
@@ -139,9 +147,10 @@ var touchLastPos;
 function handleTouch(e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
-		pos.move(touchLastPos.getDistanceXY(getCanvasPos(e.touches[0])));
+		let canvasPos = getEventCanvasPos(e.touches[0])
+		pos.move(touchLastPos.getDistanceXY(canvasPos));
 		draw();
-		touchLastPos = new Point(getCanvasPos(e.touches[0]));
+		touchLastPos = new Position(canvasPos);
 	} else {
 		touchLastPos = null;
 	}
@@ -151,7 +160,7 @@ canvas.addEventListener("touchmove", handleTouch);
 canvas.addEventListener("touchstart", function (e) {
 	touchDrag = e.touches.length == 1;
 	if (touchDrag) {
-		touchLastPos = new Point(getCanvasPos(e.touches[0]));
+		touchLastPos = new Position(getEventCanvasPos(e.touches[0]));
 	} else {
 		touchLastPos = null;
 	}
@@ -170,7 +179,7 @@ function resize() {
 	let style = getComputedStyle(holder);
 
 	// Calculates the width that should be taken by canvas: the holders width - padding - 4 pixels for the canvas border.
-	width = 500;//Math.floor(holder.getBoundingClientRect().width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
+	width = Math.floor(holder.getBoundingClientRect().width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
 	canvas.width = width;
 	canvas.height = width;
 	draw();
