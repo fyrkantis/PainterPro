@@ -1,5 +1,6 @@
 ﻿* {
 	--space: calc(0.5rem + 5vw);
+	--quarterSpace: calc(var(--space) / 4);
 	box-sizing: border-box;
 }
 
@@ -27,6 +28,8 @@ canvas, fieldset {
 	border: solid 2px #000000;
 }
 
+
+
 /* Text styles */
 
 h1 {font-size: 2rem;}
@@ -36,7 +39,11 @@ h4 {font-size: 1.4rem;}
 h5 {font-size: 1.2rem;}
 p, hr, h6 {font-size: 1rem;}
 
-p, hr, h1, h2, h3, h4, h5, h6, form, canvas {
+p, hr, h1, h2, h3, h4, h5, h6, form, input, label, canvas {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
+}
+
+p.error {
+	color: #ee0000;
 }

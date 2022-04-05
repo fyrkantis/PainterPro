@@ -6,6 +6,8 @@
 	<title>Dave's fantastic website</title>
 
 	<link rel="stylesheet" href="/style.css">
+	<link rel="stylesheet" href="/layout.css">
+	<link rel="stylesheet" href="/form.css">
 
 	<script src="/script.js" type="module"></script>
 </head>
@@ -15,13 +17,25 @@
 			<h1>Painter Pro&trade;</h1>
 			<hr>
 			<p>The greatest scam ever</p>
-			<h2>My experimental form</h2>
 			<form action="/index.html" method="post" autocomplete="off">
 				<fieldset>
-					<legend>Here it is</legend>
-					<label for="name">Enter your name here: </label>
-					<input type="text" name="name" placeholder="My awsome name" required>
-					<input type="submit" value="Send">
+					<legend>Selected pixels</legend>
+					<div class="holder" id="selectedPixelsHolder">
+						<div>
+							<label for="x">X:</label>
+							<input name="x" type="number">
+							<br>
+							<label for="y">Y:</label>
+							<input name="y" type="number">
+							<br>
+							<label for="color">Color:</label>
+							<input name="color " type="color">
+						</div>
+					</div>
+					<br>
+					<input type="submit" value="Change 0 pixels for 0kr" disabled>
+					<input type="reset" value="Start over" disabled>
+					<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
 				</fieldset>
 			</form>
 			<canvas id="paintingCanvas"></canvas>

@@ -1,0 +1,10 @@
+﻿/* Uses variables from style.css */
+
+.holder div {
+	width: max-content;
+
+	margin: var(--quarterSpace);
+	padding: var(--quarterSpace);
+
+	background-color: #dddddd;
+}
