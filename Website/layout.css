@@ -9,6 +9,20 @@
 	background-color: #dddddd;
 }
 
+div.flexHolder {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+	div.flexHolder > * {
+		/*max-width: 100%;*/
+
+		
+	}
+
 .canvasHolder {
 	height: 80vh;
+
+	flex-grow: 0.9;
+	overflow: hidden;
 }

@@ -18,29 +18,33 @@
 			<hr>
 			<p>The greatest scam ever</p>
 			<h2>Change pixels</h2>
-			<form action="/index.html" method="post" autocomplete="off">
-				<fieldset>
-					<legend>Selected pixels</legend>
-					<!-- The selected pixel box template to be cloned into the holder below. -->
-					<div id="selectedPixelTemplate" style="display: none;">
-						<h3></h3>
-						<label for="x">Coordinates: </label>
-						<br>
-						<input name="x" type="number" min="0">
-						<input name="y" type="number" min="0">
-						<br>
-						<label for="color">Color:</label>
-						<br>
-						<input name="color " type="color">
-					</div>
+			<div class="flexHolder">
+				<form action="/index.html" method="post" autocomplete="off">
+					<fieldset>
+						<legend>Selected pixels</legend>
+						<!-- The selected pixel box template to be cloned into the holder below. -->
+						<div id="selectedPixelTemplate" style="display: none;">
+							<h3></h3>
+							<label for="x">Coordinates: </label>
+							<br>
+							<input name="x" type="number" min="0">
+							<input name="y" type="number" min="0">
+							<br>
+							<label for="color">Color:</label>
+							<br>
+							<input name="color" type="color">
+						</div>
 
-					<div class="holder" id="selectedPixelsHolder"></div>
-					<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
-					<input type="submit" value="Change 0 pixels for 0kr" disabled>
-				</fieldset>
-			</form>
-			<img id="paintingImage" src="/assets/painting.png" style="display: none;">
-			<div class="canvasHolder"><canvas id="paintingCanvas"></canvas></div>
+						<div class="holder" id="selectedPixelsHolder"></div>
+						<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
+						<input id="submitButton" type="submit" value="Change 0 pixels for 0kr" disabled>
+					</fieldset>
+				</form>
+				<div class="canvasHolder">
+					<img id="paintingImage" src="/assets/painting.png" style="display: none;">
+					<canvas id="paintingCanvas"></canvas>
+				</div>
+			</div>
 		</article>
 	</main>
 </body>

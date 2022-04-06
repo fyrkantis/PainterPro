@@ -1,9 +1,16 @@
 ﻿var canvas = document.getElementById("paintingCanvas");
 var ctx = canvas.getContext("2d");
 var image = { element: document.getElementById("paintingImage") };
+var template = document.getElementById("selectedPixelTemplate");
+var holder = document.getElementById("selectedPixelsHolder");
+var submitButton = document.getElementById("submitButton");
 
 const zoomMax = Math.pow(2, 6);
 const zoomMin = Math.pow(2, -2);
+
+function rgbListToHex(rgb) {
+	return ((rgb[0] << 16) | (rgb[1] << 8) | rgb[2]).toString(16);
+}
 
 // Gets mouse coordinates on canvas.
 function getCanvasPos(pos) {
@@ -76,6 +83,11 @@ var globalPos = {
 };
 
 var points = [];
+function elementIndex(elem) {
+	var i = 0;
+	while ((elem = elem.previousElementSibling) != null) ++i;
+	return i;
+}
 
 // Re-draws everything on the canvas.
 function draw() {
@@ -97,6 +109,44 @@ function draw() {
 	points.forEach(function (point) {
 		ctx.fillRect(image.pos.x + point.pos.x * globalPos.scale, image.pos.y + point.pos.y * globalPos.scale, globalPos.scale, globalPos.scale);
 	});
+}
+
+function movePixel(e) {
+	let value = parseInt(this.value);
+	let point = points[elementIndex(this.parentElement)];
+	
+	if (this.name == "x") {
+		if (value < 0 || value >= image.element.width) {
+			console.log("Can't move out of bounds.");
+			this.value = point.pos.x;
+		} else if (points.filter(function (element) {
+			return element.pos.x == value && element.pos.y == point.pos.y;
+		}).length > 0) {
+			console.log("Can't move into another point.");
+			this.value = point.pos.x;
+		} else {
+			point.pos.x = value;
+		}
+	} else if (this.name == "y") {
+		if (value < 0 || value >= image.element.height) {
+			console.log("Can't move out of bounds.");
+			this.value = point.pos.y;
+		} else if (points.filter(function (element) {
+			return element.pos.x == point.pos.x && element.pos.y == value;
+		}).length > 0) {
+			console.log("Can't move into another point.");
+			this.value = point.pos.y;
+		} else {
+			point.pos.y = value;
+		}
+	}
+
+	draw();
+}
+
+function colorPixel(e) {
+	
+	draw()
 }
 
 // Prevents page scrolling when over canvas.
@@ -129,12 +179,35 @@ canvas.addEventListener("mouseup", function (e) {
 	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e)) <= 10) {
 		let mouseImagePos = mouseStartPos.toImageScale(); // Converts mouse position to a pixel on the image.
 		if (points.filter(function (element) {
-			return element.x == mouseImagePos.x && element.y == mouseImagePos.y;
+			return element.pos.x == mouseImagePos.x && element.pos.y == mouseImagePos.y;
 		}).length > 0) {
 			console.log("Point already exists.");
 		}
 		else if (mouseImagePos.x >= 0 && mouseImagePos.y >= 0 && mouseImagePos.x < image.element.width && mouseImagePos.y < image.element.height) {
-			points.push(new Point(mouseImagePos));
+			let point = new Point(mouseImagePos)
+			points.push(point);
+			let copy = template.cloneNode(true);
+			copy.querySelector("h3").innerHTML = "Point " + points.length;
+			let x = copy.querySelector("input[name=x]");
+			x.value = point.pos.x;
+			x.max = image.element.width - 1;
+			x.addEventListener("change", movePixel);
+
+			let y = copy.querySelector("input[name=y]");
+			y.value = point.pos.y;
+			y.max = image.element.height - 1;
+			y.addEventListener("change", movePixel);
+
+			let color = copy.querySelector("input[type=color]");
+			// Gets the current color of the pixel.
+			// https://stackoverflow.com/a/6736135/13347795
+			color.value = "#" + ("000000" + rgbListToHex(ctx.getImageData(mouseStartPos.x, mouseStartPos.y, 1, 1).data)).slice(-6);
+			color.addEventListener("input", colorPixel);
+
+			copy.style = "";
+			holder.appendChild(copy); // TODO: Scroll when pixel is added.
+			submitButton.value = "Change " + points.length + " pixels for " + points.length * 3 + "kr";
+			submitButton.disabled = points.length <= 0;
 			draw();
 		} else {
 			console.log("Point out of bounds.");
