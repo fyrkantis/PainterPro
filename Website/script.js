@@ -2,7 +2,8 @@
 var ctx = canvas.getContext("2d");
 var image = { element: document.getElementById("paintingImage") };
 
-var width = 500; // TODO: Replace with ctx parameter.
+const zoomMax = Math.pow(2, 6);
+const zoomMin = Math.pow(2, -2);
 
 // Gets mouse coordinates on canvas.
 function getCanvasPos(pos) {
@@ -45,24 +46,29 @@ function Point(pos, color) {
 var globalPos = {
 	x: 0.5,
 	y: 0.5,
-	scale: 1,
+	scale: 2,
 	move: function (distance) {
-		this.x += distance.x / width;
-		this.y += distance.y / width;
+		this.x += distance.x / canvas.clientWidth;
+		this.y += distance.y / canvas.clientHeight;
 	},
 	zoom: function (amount) {
-		let factor = 1;
-		if (amount > 0) {
-			factor /= 2;
-		} else if (amount < 0) {
-			factor *= 2;
+		let factor = Math.pow(0.5, amount / 150);
+
+		// Clamps zoom.
+		if (this.scale * factor > zoomMax) {
+			console.log("Max zoom reached.");
+			factor = zoomMax / this.scale;
+		} else if (this.scale * factor < zoomMin) {
+			console.log("Min zoom reached.");
+			factor = zoomMin / this.scale;
 		}
 		this.scale *= factor;
+
 		if (mouseLastPos != null) {
 			
 			// https://stackoverflow.com/a/30039971/13347795
-			this.x = (image.pos.x - (mouseLastPos.x - image.pos.x - image.size.x / 2) * (factor - 1) + image.size.x / 2) / width;
-			this.y = (image.pos.y - (mouseLastPos.y - image.pos.y - image.size.x / 2) * (factor - 1) + image.size.y / 2) / width;
+			this.x = (image.pos.x - (mouseLastPos.x - image.pos.x - image.size.x / 2) * (factor - 1) + image.size.x / 2) / canvas.clientWidth;
+			this.y = (image.pos.y - (mouseLastPos.y - image.pos.y - image.size.x / 2) * (factor - 1) + image.size.y / 2) / canvas.clientHeight;
 		} else {
 			console.log("No mouse position to scroll from.");
 		}
@@ -73,10 +79,17 @@ var points = [];
 
 // Re-draws everything on the canvas.
 function draw() {
-	ctx.clearRect(0, 0, width, width);
+	// Makes the individual pixels more clear.
+	// https://stackoverflow.com/a/19129822/13347795
+	ctx.imageSmoothingEnabled = false;
+	ctx.msImageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
+
+	ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
 	image.size = { x: image.element.width * globalPos.scale, y: image.element.height * globalPos.scale }
-	image.pos = { x: globalPos.x * width - image.size.x / 2, y: globalPos.y * width - image.size.y / 2 }
+	image.pos = { x: globalPos.x * canvas.clientWidth - image.size.x / 2, y: globalPos.y * canvas.clientHeight - image.size.y / 2 }
 
 	ctx.drawImage(image.element, image.pos.x, image.pos.y, image.size.x, image.size.y);
 
@@ -84,13 +97,6 @@ function draw() {
 	points.forEach(function (point) {
 		ctx.fillRect(image.pos.x + point.pos.x * globalPos.scale, image.pos.y + point.pos.y * globalPos.scale, globalPos.scale, globalPos.scale);
 	});
-
-	// Makes the individual pixels more clear.
-	// https://stackoverflow.com/a/19129822/13347795
-	ctx.imageSmoothingEnabled = false;
-	ctx.msImageSmoothingEnabled = false;
-	ctx.mozImageSmoothingEnabled = false;
-	ctx.webkitImageSmoothingEnabled = false;
 }
 
 // Prevents page scrolling when over canvas.
@@ -181,12 +187,14 @@ canvas.addEventListener("gesturechange", function (e) {
 
 function resize() {
 	let holder = canvas.parentElement;
+	let rect = holder.getBoundingClientRect()
 	let style = getComputedStyle(holder);
 
 	// Calculates the width that should be taken by canvas: the holders width - padding - 4 pixels for the canvas border.
-	width = Math.floor(holder.getBoundingClientRect().width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
+	let width = Math.floor(rect.width - parseFloat(style.getPropertyValue("padding-left")) - parseFloat(style.getPropertyValue("padding-right")) - 4);
+	let height = Math.floor(rect.height - parseFloat(style.getPropertyValue("padding-top")) - parseFloat(style.getPropertyValue("padding-bottom")) - 4);
 	canvas.width = width;
-	canvas.height = width;
+	canvas.height = height;
 	draw();
 }
 resize();

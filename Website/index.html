@@ -17,29 +17,30 @@
 			<h1>Painter Pro&trade;</h1>
 			<hr>
 			<p>The greatest scam ever</p>
+			<h2>Change pixels</h2>
 			<form action="/index.html" method="post" autocomplete="off">
 				<fieldset>
 					<legend>Selected pixels</legend>
-					<div class="holder" id="selectedPixelsHolder">
-						<div>
-							<label for="x">X:</label>
-							<input name="x" type="number">
-							<br>
-							<label for="y">Y:</label>
-							<input name="y" type="number">
-							<br>
-							<label for="color">Color:</label>
-							<input name="color " type="color">
-						</div>
+					<!-- The selected pixel box template to be cloned into the holder below. -->
+					<div id="selectedPixelTemplate" style="display: none;">
+						<h3></h3>
+						<label for="x">Coordinates: </label>
+						<br>
+						<input name="x" type="number" min="0">
+						<input name="y" type="number" min="0">
+						<br>
+						<label for="color">Color:</label>
+						<br>
+						<input name="color " type="color">
 					</div>
-					<br>
-					<input type="submit" value="Change 0 pixels for 0kr" disabled>
-					<input type="reset" value="Start over" disabled>
+
+					<div class="holder" id="selectedPixelsHolder"></div>
 					<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
+					<input type="submit" value="Change 0 pixels for 0kr" disabled>
 				</fieldset>
 			</form>
-			<canvas id="paintingCanvas"></canvas>
 			<img id="paintingImage" src="/assets/painting.png" style="display: none;">
+			<div class="canvasHolder"><canvas id="paintingCanvas"></canvas></div>
 		</article>
 	</main>
 </body>

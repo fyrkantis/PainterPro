@@ -32,11 +32,12 @@ canvas, fieldset {
 
 /* Text styles */
 
-h1 {font-size: 2rem;}
-h2 {font-size: 1.8rem;}
-h3 {font-size: 1.6rem;}
-h4 {font-size: 1.4rem;}
-h5 {font-size: 1.2rem;}
+/* f(x) = (2x^2 - 4x + 27) / 25 */
+h1 {font-size: 3rem;}
+h2 {font-size: calc(57rem / 25);}
+h3 {font-size: calc(43rem / 25);}
+h4 {font-size: calc(33rem / 25);}
+h5 {font-size: calc(27rem / 25);}
 p, hr, h6 {font-size: 1rem;}
 
 p, hr, h1, h2, h3, h4, h5, h6, form, input, label, canvas {
