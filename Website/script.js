@@ -44,7 +44,12 @@ function EventPosition(e) {
 	return Position({ x: e.clientX, y: e.clientY });
 }
 
+var points = [];
+var pointIndex = 0;
 function Point(pos, color) {
+	this.index = pointIndex;
+	pointIndex++;
+
 	this.pos = pos;
 	this.color = color;
 }
@@ -82,13 +87,6 @@ var globalPos = {
 	}
 };
 
-var points = [];
-function elementIndex(elem) {
-	var i = 0;
-	while ((elem = elem.previousElementSibling) != null) ++i;
-	return i;
-}
-
 // Re-draws everything on the canvas.
 function draw() {
 	// Makes the individual pixels more clear.
@@ -105,15 +103,20 @@ function draw() {
 
 	ctx.drawImage(image.element, image.pos.x, image.pos.y, image.size.x, image.size.y);
 
-	ctx.fillStyle = "#ff0000";
 	points.forEach(function (point) {
+		ctx.fillStyle = point.color;
 		ctx.fillRect(image.pos.x + point.pos.x * globalPos.scale, image.pos.y + point.pos.y * globalPos.scale, globalPos.scale, globalPos.scale);
 	});
 }
 
+function getPoint(index) {
+	return points.filter(function (element) { return element.index == index; })[0]
+}
+
 function movePixel(e) {
 	let value = parseInt(this.value);
-	let point = points[elementIndex(this.parentElement)];
+	console.log(this.index);
+	let point = getPoint(this.index);
 	
 	if (this.name == "x") {
 		if (value < 0 || value >= image.element.width) {
@@ -145,7 +148,8 @@ function movePixel(e) {
 }
 
 function colorPixel(e) {
-	
+	let point = getPoint(this.index);
+	point.color = this.value;
 	draw()
 }
 
@@ -187,21 +191,27 @@ canvas.addEventListener("mouseup", function (e) {
 			let point = new Point(mouseImagePos)
 			points.push(point);
 			let copy = template.cloneNode(true);
-			copy.querySelector("h3").innerHTML = "Point " + points.length;
+			copy.querySelector("h3").innerHTML = "Point " + point.index;
+
 			let x = copy.querySelector("input[name=x]");
+			x.index = point.index;
 			x.value = point.pos.x;
 			x.max = image.element.width - 1;
 			x.addEventListener("change", movePixel);
 
 			let y = copy.querySelector("input[name=y]");
+			y.index = point.index;
 			y.value = point.pos.y;
 			y.max = image.element.height - 1;
 			y.addEventListener("change", movePixel);
 
 			let color = copy.querySelector("input[type=color]");
+			color.index = point.index;
 			// Gets the current color of the pixel.
 			// https://stackoverflow.com/a/6736135/13347795
-			color.value = "#" + ("000000" + rgbListToHex(ctx.getImageData(mouseStartPos.x, mouseStartPos.y, 1, 1).data)).slice(-6);
+			let hexColor = "#" + ("000000" + rgbListToHex(ctx.getImageData(mouseStartPos.x, mouseStartPos.y, 1, 1).data)).slice(-6);
+			color.value = hexColor;
+			point.color = hexColor;
 			color.addEventListener("input", colorPixel);
 
 			copy.style = "";

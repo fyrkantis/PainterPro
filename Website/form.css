@@ -11,3 +11,7 @@ input[type=color] {
 	width: 4em;
 	height: 4em;
 }
+
+fieldset.noBorder {
+	border: none;
+}
