@@ -20,6 +20,17 @@
 			<h2>Change pixels</h2>
 			<div class="flexHolder">
 				<form action="/index.html" method="post" autocomplete="off">
+					<datalist id="colors">
+						<option>#ff0000</option>
+						<option>#ffff00</option>
+						<option>#00ff00</option>
+						<option>#00ffff</option>
+						<option>#0000ff</option>
+						<option>#ff00ff</option>
+						<option>#ffffff</option>
+						<option>#aaaaaa</option>
+						<option>#000000</option>
+					</datalist>
 					<fieldset>
 						<legend>Selected pixels</legend>
 						<!-- The selected pixel box template to be cloned into the holder below. -->
@@ -34,7 +45,7 @@
 							</fieldset>
 							<label for="color">Color:</label>
 							<br>
-							<input name="color" type="color">
+							<input name="color" type="color" list="colors">
 						</div>
 
 						<div class="holder" id="selectedPixelsHolder"></div>

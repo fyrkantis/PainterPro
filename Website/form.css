@@ -8,7 +8,7 @@ input[type=number] {
 }
 
 input[type=color] {
-	width: 4em;
+	width: 8em;
 	height: 4em;
 }
 

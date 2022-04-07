@@ -14,15 +14,13 @@ div.flexHolder {
 	flex-wrap: wrap;
 }
 
-	div.flexHolder > * {
-		/*max-width: 100%;*/
-
-		
-	}
-
 .canvasHolder {
 	height: 80vh;
 
 	flex-grow: 0.9;
 	overflow: hidden;
+}
+
+.canvasHolder > * {
+	margin: 0px;
 }
