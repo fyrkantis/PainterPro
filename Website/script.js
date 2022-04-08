@@ -15,7 +15,21 @@ var colors = [];
 for (let i = 0; i < colorOptions.length; i++) {
 	colors.push(colorOptions[i].value)
 }
-console.log(colors);
+
+const picker = {
+	margin: { x: 10, y: 10 },
+	rowLength: 3,
+	box: {
+		size: { x: 20, y: 20 },
+		distance: { x: 5, y: 5 }
+	},
+	width: function (lengthX) {
+		return this.margin.x * 2 + this.box.size.x * lengthX + this.box.distance.x * (lengthX - 1)
+	},
+	height: function (lengthY) {
+		return this.margin.y * 2 + this.box.size.y * lengthY + picker.box.distance.y * (lengthY - 1)
+	}
+};
 
 // Gets mouse coordinates on canvas.
 function getCanvasPos(pos) {
@@ -95,13 +109,6 @@ var globalPos = {
 
 // Re-draws everything on the canvas.
 function draw() {
-	// Makes the individual pixels more clear.
-	// https://stackoverflow.com/a/19129822/13347795
-	ctx.imageSmoothingEnabled = false;
-	ctx.msImageSmoothingEnabled = false;
-	ctx.mozImageSmoothingEnabled = false;
-	ctx.webkitImageSmoothingEnabled = false;
-
 	ctx.font = fontSize + "px Arial";
 
 	ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
@@ -116,32 +123,24 @@ function draw() {
 	points.forEach(function (point) {
 		let x = image.pos.x + point.pos.x * globalPos.scale;
 		let y = image.pos.y + point.pos.y * globalPos.scale;
-		ctx.strokeStyle = "#000000";
-		ctx.lineWidth = 4;
+
+		// Draws pixel.
 		if (point.color) {
 			ctx.fillStyle = point.color;
 			ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
-		} else {
-			ctx.fillStyle = "#ffffff";
-			let pos = {};
-			let width = colors.length * 20 + 20
-			if (x < canvas.width / 2) { pos.x = x + globalPos.scale; }
-			else { pos.x = x - width; }
-			ctx.strokeRect(pos.x, y, width, 100);
-			ctx.fillRect(pos.x, y, width, 100);
-			colors.forEach(function (color, i) {
-				ctx.fillStyle = color;
-				ctx.fillRect(x + 10 + i * 20, y + 10, 50, 80);
-			});
 		}
 
+		// Draws pixel index.
+		ctx.strokeStyle = "#000000";
 		ctx.fillStyle = "#ffffff";
+		ctx.lineWidth = 4;
 		if (globalPos.scale >= fontSize + fontPadding * 2) {
 			ctx.strokeText(point.index, x + fontPadding, y + fontPadding);
 			ctx.fillText(point.index, x + fontPadding, y + fontPadding);
-		}
-		ctx.lineWidth = 1;
+		}// else if ()
 
+		// Draws pixel frame.
+		ctx.lineWidth = 1;
 		ctx.beginPath();
 		ctx.moveTo(x + globalPos.scale + 0.5, y - 1);
 		ctx.lineTo(x + globalPos.scale + 0.5, y + globalPos.scale + 0.5);
@@ -154,6 +153,35 @@ function draw() {
 		ctx.lineTo(x - 0.5, y - 0.5);
 		ctx.lineTo(x + globalPos.scale, y - 0.5);
 		ctx.stroke();
+
+		// Draws color selector.
+		if (!point.color) {
+			let pos = {};
+			let size = { length: { x: Math.min(colors.length, picker.rowLength), y: Math.floor(colors.length / picker.rowLength) } };
+			
+			size.x = picker.width(size.length.x);
+			size.y = picker.height(size.length.y);
+
+			if (x < canvas.width / 2) { pos.x = x + globalPos.scale; }
+			else { pos.x = x - size.x; }
+
+			ctx.lineWidth = 3;
+			ctx.strokeStyle = "#000000";
+			ctx.strokeRect(pos.x, y, size.x, size.y);
+			ctx.fillRect(pos.x, y, size.x, size.y);
+
+			colors.forEach(function (color, i) {
+				let xIndex = i % picker.rowLength;
+				let yIndex = Math.floor(i / picker.rowLength);
+				ctx.fillStyle = color;
+				let box = {
+					x: pos.x + picker.margin.x + picker.box.size.x * xIndex + picker.box.distance.x * xIndex,
+					y: y + picker.margin.y + picker.box.size.y * yIndex + picker.box.distance.y * yIndex
+				}
+				ctx.strokeRect(box.x, box.y, picker.box.size.x, picker.box.size.y);
+				ctx.fillRect(box.x, box.y, picker.box.size.x, picker.box.size.y);
+			});
+		}
 	});
 
 	ctx.textAlign = "end";
@@ -170,6 +198,14 @@ function draw() {
 	ctx.fillStyle = "#ffffff";
 	ctx.strokeText(text, canvas.width, canvas.height);
 	ctx.fillText(text, canvas.width, canvas.height);
+}
+
+function mouseOverPicker() {
+
+}
+
+function getPickerColor() {
+
 }
 
 function getPoint(index) {
@@ -230,7 +266,6 @@ canvas.addEventListener("mousemove", function (e) {
 	let canvasPos = getEventCanvasPos(e);
 	if (mouseLastPos && mouseDrag) {
 		globalPos.move(mouseLastPos.getDistanceXY(canvasPos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
-		draw();
 	}
 	mouseLastPos = new Position(canvasPos);
 	draw();
@@ -254,7 +289,7 @@ canvas.addEventListener("mouseup", function (e) {
 			points.push(point);
 
 			let copy = template.cloneNode(true);
-			copy.querySelector("h3").innerHTML = "Point " + point.index;
+			copy.querySelector("legend").innerHTML = "Point " + point.index;
 
 			let x = copy.querySelector("input[name=x]");
 			x.index = point.index;
@@ -270,7 +305,7 @@ canvas.addEventListener("mouseup", function (e) {
 
 			let color = copy.querySelector("input[type=color]");
 			color.index = point.index;
-			color.value = "#ff0000";
+			//color.value = "#ff0000";
 			color.addEventListener("input", colorPixel);
 
 			copy.style = "";
@@ -340,6 +375,16 @@ function resize() {
 	let height = Math.floor(rect.height - parseFloat(style.getPropertyValue("padding-top")) - parseFloat(style.getPropertyValue("padding-bottom")) - 4);
 	canvas.width = width;
 	canvas.height = height;
+
+	// Makes the individual pixels more clear.
+	// https://stackoverflow.com/a/19129822/13347795
+	// Yes, this is the right place to do this.
+	// https://stackoverflow.com/a/29564875/13347795
+	ctx.imageSmoothingEnabled = false;
+	ctx.msImageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
+
 	draw();
 }
 resize();

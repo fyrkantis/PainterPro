@@ -34,19 +34,16 @@
 					<fieldset>
 						<legend>Selected pixels</legend>
 						<!-- The selected pixel box template to be cloned into the holder below. -->
-						<div id="selectedPixelTemplate" style="display: none;">
-							<h3>Point</h3>
-							<fieldset class="noBorder">
-								<legend>Coordinates</legend>
-								<label for="x">X:</label>
-								<input name="x" type="number" min="0">
-								<label for="y">Y:</label>
-								<input name="y" type="number" min="0">
-							</fieldset>
-							<label for="color">Color:</label>
+						<fieldset class="noBorder" id="selectedPixelTemplate" style="display: none;">
+							<legend>Point</legend>
+							<label for="x">X:</label>
+							<input name="x" type="number" min="0">
+							<label for="y">Y:</label>
+							<input name="y" type="number" min="0">
 							<br>
 							<input name="color" type="color" list="colors">
-						</div>
+						</fieldset>
+						
 
 						<div class="holder" id="selectedPixelsHolder"></div>
 						<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
