@@ -149,15 +149,11 @@ function draw() {
 		if (point.color != null) {
 			ctx.fillStyle = point.color;
 			ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
-		} else {
-			if (selectedIndex == null) {
-				selectedIndex = point.index;
-			} else if (selectedIndex == point.index && mouseLastPos != null) {
-				let color = getPickerColor(mouseLastPos);
-				if (color != null) {
-					ctx.fillStyle = color;
-					ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
-				}
+		} else if (mouseLastPos != null) {
+			let color = getPickerColor(mouseLastPos);
+			if (color != null) {
+				ctx.fillStyle = color;
+				ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
 			}
 		}
 
@@ -310,13 +306,15 @@ canvas.addEventListener("mouseup", function (e) {
 	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e)) <= 10) {
 		let color = getPickerColor(mouseStartPos);
 		if (color != null) {
-			getPoint(selectedIndex).color = color;
+			points.filter(function (point) { return point.color == null; }).forEach(function (point) {
+				point.color = color;
 
-			// TODO: What the heck? Why can't I find the color input?
-			/*console.log("input[type=color][index=\"" + selectedIndex + "\"]");
-			console.log(selectedIndex);
-			console.log(holder)
-			console.log(holder.querySelector("input[type=color][index=\"" + selectedIndex + "\"]"));//.value = color;*/
+				// TODO: What the heck? Why can't I find the color input?
+				/*console.log("input[type=color][index=\"" + selectedIndex + "\"]");
+				console.log(selectedIndex);
+				console.log(holder)
+				console.log(holder.querySelector("input[type=color][index=\"" + selectedIndex + "\"]"));//.value = color;*/
+			});
 			selectedIndex = null;
 		} else {
 			let mouseImagePos = mouseStartPos.toImageScale(); // Converts mouse position to a pixel on the image.
@@ -328,7 +326,9 @@ canvas.addEventListener("mouseup", function (e) {
 			else if (mouseImagePos.x >= 0 && mouseImagePos.y >= 0 && mouseImagePos.x < image.element.width && mouseImagePos.y < image.element.height) {
 				let point = new Point(mouseImagePos)
 				points.push(point);
-				selectedIndex = point.index;
+				if (selectedIndex == null) {
+					selectedIndex = point.index;
+				}
 
 				let copy = template.cloneNode(true);
 				copy.querySelector("legend").innerHTML = "Point " + point.index;
