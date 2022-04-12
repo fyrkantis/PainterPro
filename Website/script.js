@@ -88,11 +88,11 @@ function EventPosition(e) {
 var pixels = [];
 var pixelIndex = 0;
 var selectedIndex = null;
-function Pixel(pos) {
+function Pixel(pos, element) {
 	this.index = pixelIndex;
 	pixelIndex++;
-
 	this.pos = pos;
+	this.element = element;
 	this.color = null;
 }
 
@@ -203,6 +203,7 @@ function draw() {
 		picker = new Picker(selectedIndex);
 		if (picker != null) {
 			ctx.lineWidth = 3;
+			ctx.fillStyle = "#ffffff";
 			ctx.strokeStyle = "#000000";
 			ctx.strokeRect(picker.pos.x, picker.pos.y, picker.size.x, picker.size.y);
 			ctx.fillRect(picker.pos.x, picker.pos.y, picker.size.x, picker.size.y);
@@ -292,12 +293,12 @@ function colorPixel(e) {
 	console.log("Selected color " + this.value + " from input.");
 	getPixel(index).color = this.value;
 	if (selectedIndex == index) {
-		selectPixel();
+		selectNewPixel();
 	}
 	draw();
 }
 
-function selectPixel() {
+function selectNewPixel() {
 	selectedIndex = null
 	for (let i = 0; i < pixels.length; i++) {
 		let pixel = pixels[i]
@@ -345,7 +346,7 @@ canvas.addEventListener("mouseup", function (e) {
 			console.log("Selected color " + color + " from picker.");
 			pixels.filter(function (pixel) { return pixel.color == null || pixel.index == selectedIndex; }).forEach(function (pixel) {
 				pixel.color = color;
-				holder.querySelector("input[type=color][index=\"" + pixel.index + "\"]").value = color;
+				pixel.element.querySelector("input[type=color]").value = color;
 			});
 			selectedIndex = null;
 			draw();
@@ -359,49 +360,76 @@ canvas.addEventListener("mouseup", function (e) {
 			return;
 		}
 
-		// Checks if an existing pixel was selected.
+		// Checks if an existing pixel was clicked.
 		for (let i = 0; i < pixels.length; i++) {
 			let pixel = pixels[i];
 			if (pixel.pos.x == mouseImagePos.x && pixel.pos.y == mouseImagePos.y) {
-				console.log("Selected pixel " + pixel.index + ".");
-				selectedIndex = pixel.index;
+				if (pixel.index != selectedIndex) {
+					console.log("Selected pixel " + pixel.index + ".");
+					selectedIndex = pixel.index;
+				} else {
+					if (pixel.color != null) {
+						console.log("Deselected pixel " + pixel.index + ".");
+						selectNewPixel();
+					} else {
+						console.log("Removed pixel " + pixel.index + ".");
+						pixel.element.remove();
+						pixels.splice(i, 1);
+						selectNewPixel();
+						submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
+						submitButton.disabled = pixels.length <= 0;
+					}
+				}
 				draw();
 				return;
 			}
 		}
 
-		// Adds new pixel.
-		let pixel = new Pixel(mouseImagePos)
+		// Adds new pixel on this vacant space.
+		let pixel = new Pixel(mouseImagePos, template.cloneNode(true))
 		console.log("Created pixel " + pixel.index + ".");
 		pixels.push(pixel);
 		if (selectedIndex == null) {
 			selectedIndex = pixel.index;
 		}
+		pixel.element.querySelector("legend").innerHTML = "Pixel " + pixel.index;
+		pixel.element.index = pixel.index;
 
-		let copy = template.cloneNode(true);
-		copy.querySelector("legend").innerHTML = "Pixel " + pixel.index;
-		copy.index = pixel.index;
-
-		let xInput = copy.querySelector("input[name=x]");
+		let xInput = pixel.element.querySelector("input[name=x]");
 		xInput.setAttribute("index", pixel.index);
 		xInput.value = pixel.pos.x;
 		xInput.max = image.element.width - 1;
 		xInput.addEventListener("change", movePixel);
 
-		let yInput = copy.querySelector("input[name=y]");
+		let yInput = pixel.element.querySelector("input[name=y]");
 		yInput.setAttribute("index", pixel.index);
 		yInput.value = pixel.pos.y;
 		yInput.max = image.element.height - 1;
 		yInput.addEventListener("change", movePixel);
 
-		let colorInput = copy.querySelector("input[type=color]");
+		let colorInput = pixel.element.querySelector("input[type=color]");
 		colorInput.setAttribute("index", pixel.index); // Need to do this for custom attributes for some reason.
 		colorInput.addEventListener("input", colorPixel);
 
-		copy.style = "";
+		pixel.element.querySelector("input[name=select").addEventListener("click", function (e) {
+			console.log("Selected pixel " + pixel.index + " with button.")
+			selectedIndex = pixel.index;
+			draw();
+		});
+
+		pixel.element.querySelector("input[name=remove").addEventListener("click", function (e) {
+			console.log("Removed pixel " + pixel.index + " with button.");
+			pixel.element.remove();
+			pixels.splice(pixels.indexOf(pixel), 1);
+			selectNewPixel();
+			submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
+			draw();
+		});
+
+		pixel.element.style = "";
 
 		//let current = canvas.scrollTop;
-		holder.appendChild(copy);
+		holder.appendChild(pixel.element);
 		//canvas.scrollTop = current;
 
 		submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";

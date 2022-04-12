@@ -1,10 +1,14 @@
-﻿form {
-	width: max-content;
-	max-width: 100%;
+﻿input[type=number] {
+	width: 4em
 }
 
-input[type=number] {
-	width: 4em
+input[type=checkbox] {
+	/* Resizes checkboxes. */
+	/* https://stackoverflow.com/a/10415275/13347795 */
+	-ms-transform: scale(1.5); /* IE */
+	-moz-transform: scale(1.5); /* FF */
+	-webkit-transform: scale(1.5); /* Safari and Chrome */
+	-o-transform: scale(1.5); /* Opera */
 }
 
 input[type=color] {

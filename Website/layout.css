@@ -1,10 +1,15 @@
 ﻿/* Uses variables from style.css */
 
+.holder.pixel {
+	display: flex;
+	flex-wrap: wrap;
+}
+
 .holder.pixel > * {
 	width: max-content;
 
-	margin: var(--quarterSpace);
-	padding: var(--quarterSpace);
+	margin: var(--eigthSpace);
+	padding: var(--eigthSpace);
 }
 
 .holder.canvas {

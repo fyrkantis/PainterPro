@@ -1,6 +1,6 @@
 ﻿* {
 	--space: calc(0.5rem + 5vw);
-	--quarterSpace: calc(var(--space) / 4);
+	--eigthSpace: calc(var(--space) / 8);
 	box-sizing: border-box;
 }
 
