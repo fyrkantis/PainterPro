@@ -4,8 +4,9 @@ var image = { element: document.getElementById("paintingImage") };
 var template = document.getElementById("selectedPixelTemplate");
 var holder = document.getElementById("selectedPixelsHolder");
 var submitButton = document.getElementById("submitButton");
+var showCheckbox = document.getElementById("show");
 
-const zoomMax = Math.pow(2, 6);
+const zoomMax = Math.pow(2, 8);
 const zoomMin = Math.pow(2, -2);
 const fontSize = 12;
 const fontPadding = 2;
@@ -33,10 +34,10 @@ function Picker(index) {
 		y: this.margin.y * 2 + this.box.size.y * this.length.y + this.box.distance.y * (this.length.y - 1)
 	};
 
-	let point = getPoint(index);
+	let pixel = getPixel(index);
 	this.pos = {
-		x: image.pos.x + point.pos.x * globalPos.scale,
-		y: image.pos.y + point.pos.y * globalPos.scale
+		x: image.pos.x + pixel.pos.x * globalPos.scale,
+		y: image.pos.y + pixel.pos.y * globalPos.scale
 	};
 	if (this.pos.x < canvas.width / 2) { this.pos.x += globalPos.scale; }
 	else { this.pos.x -= this.size.x; }
@@ -84,12 +85,12 @@ function EventPosition(e) {
 	return Position({ x: e.clientX, y: e.clientY });
 }
 
-var points = [];
-var pointIndex = 0;
+var pixels = [];
+var pixelIndex = 0;
 var selectedIndex = null;
-function Point(pos) {
-	this.index = pointIndex;
-	pointIndex++;
+function Pixel(pos) {
+	this.index = pixelIndex;
+	pixelIndex++;
 
 	this.pos = pos;
 	this.color = null;
@@ -140,47 +141,62 @@ function draw() {
 
 	ctx.textAlign = "start";
 	ctx.textBaseline = "top";
-	
-	points.forEach(function (point) {
-		let x = image.pos.x + point.pos.x * globalPos.scale;
-		let y = image.pos.y + point.pos.y * globalPos.scale;
 
-		// Draws pixel.
-		if (point.color != null) {
-			ctx.fillStyle = point.color;
+	// Draws pixels.
+	pixels.forEach(function (pixel) {
+		let x = image.pos.x + pixel.pos.x * globalPos.scale;
+		let y = image.pos.y + pixel.pos.y * globalPos.scale;
+
+		let color = getPickerColor(mouseLastPos);
+		if (pixel.color != null && !(pixel.index == selectedIndex && color != null)) {
+			ctx.fillStyle = pixel.color;
 			ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
-		} else if (mouseLastPos != null) {
-			let color = getPickerColor(mouseLastPos);
-			if (color != null) {
-				ctx.fillStyle = color;
-				ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
-			}
+		} else if (color != null) {
+			ctx.fillStyle = color;
+			ctx.fillRect(x, y, globalPos.scale, globalPos.scale);
 		}
-
-		// Draws pixel index.
-		ctx.strokeStyle = "#000000";
-		ctx.fillStyle = "#ffffff";
-		ctx.lineWidth = 4;
-		if (globalPos.scale >= fontSize + fontPadding * 2) {
-			ctx.strokeText(point.index, x + fontPadding, y + fontPadding);
-			ctx.fillText(point.index, x + fontPadding, y + fontPadding);
-		}
-
-		// Draws pixel frame.
-		ctx.lineWidth = 1;
-		ctx.beginPath();
-		ctx.moveTo(x + globalPos.scale + 0.5, y - 1);
-		ctx.lineTo(x + globalPos.scale + 0.5, y + globalPos.scale + 0.5);
-		ctx.lineTo(x - 1, y + globalPos.scale + 0.5);
-		ctx.stroke();
-
-		ctx.strokeStyle = "#aaaaaa";
-		ctx.beginPath()
-		ctx.moveTo(x - 0.5, y + globalPos.scale)
-		ctx.lineTo(x - 0.5, y - 0.5);
-		ctx.lineTo(x + globalPos.scale, y - 0.5);
-		ctx.stroke();
 	});
+
+	if (showCheckbox.checked) {
+		// Draws pixel frames.
+		pixels.forEach(function (pixel) {
+			let x = image.pos.x + pixel.pos.x * globalPos.scale;
+			let y = image.pos.y + pixel.pos.y * globalPos.scale;
+			let frameWidth = 2;
+			if (pixel.index == selectedIndex) {
+				frameWidth = 5;
+			}
+
+			ctx.fillStyle = "#000000";
+			ctx.beginPath();
+			ctx.moveTo(x + globalPos.scale, y);
+			ctx.lineTo(x + globalPos.scale - frameWidth, y + frameWidth);
+			ctx.lineTo(x + globalPos.scale - frameWidth, y + globalPos.scale - frameWidth);
+			ctx.lineTo(x + frameWidth, y + globalPos.scale - frameWidth);
+			ctx.lineTo(x, y + globalPos.scale);
+			ctx.lineTo(x + globalPos.scale, y + globalPos.scale);
+			ctx.fill();
+
+			ctx.fillStyle = "#aaaaaa";
+			ctx.beginPath()
+			ctx.moveTo(x, y + globalPos.scale);
+			ctx.lineTo(x + frameWidth, y + globalPos.scale - frameWidth);
+			ctx.lineTo(x + frameWidth, y + frameWidth);
+			ctx.lineTo(x + globalPos.scale - frameWidth, y + frameWidth);
+			ctx.lineTo(x + globalPos.scale, y);
+			ctx.lineTo(x, y);
+			ctx.fill();
+
+			// Draws pixel index.
+			ctx.strokeStyle = "#000000";
+			ctx.fillStyle = "#ffffff";
+			ctx.lineWidth = 4;
+			if (globalPos.scale >= fontSize + fontPadding * 2) {
+				ctx.strokeText(pixel.index, x + fontPadding, y + fontPadding);
+				ctx.fillText(pixel.index, x + fontPadding, y + fontPadding);
+			}
+		});
+	}
 
 	// Draws color picker.
 	if (selectedIndex != null) {
@@ -232,48 +248,64 @@ function getPickerColor(pos) {
 	return returnColor;
 }
 
-function getPoint(index) {
-	return points.filter(function (element) { return element.index == index; })[0]
+function getPixel(index) {
+	return pixels.filter(function (element) { return element.index == index; })[0]
 }
 
 function movePixel(e) {
+	let index = parseInt(this.getAttribute("index"));
 	let value = parseInt(this.value);
-	let point = getPoint(this.index);
+	let pixel = getPixel(index);
 	
 	if (this.name == "x") {
 		if (value < 0 || value >= image.element.width) {
 			console.log("Can't move out of bounds.");
-			this.value = point.pos.x;
-		} else if (points.filter(function (element) {
-			return element.pos.x == value && element.pos.y == point.pos.y;
+			this.value = pixel.pos.x;
+		} else if (pixels.filter(function (element) {
+			return element.pos.x == value && element.pos.y == pixel.pos.y;
 		}).length > 0) {
-			console.log("Can't move into another point.");
-			this.value = point.pos.x;
+			console.log("Can't move into another pixel.");
+			this.value = pixel.pos.x;
 		} else {
-			point.pos.x = value;
+			console.log("Moved pixel to x: " + value + ".");
+			pixel.pos.x = value;
 		}
 	} else if (this.name == "y") {
 		if (value < 0 || value >= image.element.height) {
 			console.log("Can't move out of bounds.");
-			this.value = point.pos.y;
-		} else if (points.filter(function (element) {
-			return element.pos.x == point.pos.x && element.pos.y == value;
+			this.value = pixel.pos.y;
+		} else if (pixels.filter(function (element) {
+			return element.pos.x == pixel.pos.x && element.pos.y == value;
 		}).length > 0) {
-			console.log("Can't move into another point.");
-			this.value = point.pos.y;
+			console.log("Can't move into another pixel.");
+			this.value = pixel.pos.y;
 		} else {
-			point.pos.y = value;
+			console.log("Moved pixel to y: " + value + ".");
+			pixel.pos.y = value;
 		}
 	}
 	draw();
 }
 
 function colorPixel(e) {
-	picker.getBox(this.index).color = this.value;
-	if (selectedIndex == this.index) {
-		selectedIndex = null;
+	let index = parseInt(this.getAttribute("index"));
+	console.log("Selected color " + this.value + " from input.");
+	getPixel(index).color = this.value;
+	if (selectedIndex == index) {
+		selectPixel();
 	}
 	draw();
+}
+
+function selectPixel() {
+	selectedIndex = null
+	for (let i = 0; i < pixels.length; i++) {
+		let pixel = pixels[i]
+		if (pixel.color == null) {
+			selectedIndex = pixel.index;
+			break;
+		}
+	}
 }
 
 // Prevents page scrolling when over canvas.
@@ -303,70 +335,81 @@ canvas.addEventListener("mousedown", function (e) {
 	mouseDrag = true;
 });
 canvas.addEventListener("mouseup", function (e) {
+	mouseDrag = false
+
+	// Decides what should happen on click (not just end of drag).
 	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e)) <= 10) {
+		// Checks if a color box was clicked.
 		let color = getPickerColor(mouseStartPos);
 		if (color != null) {
-			points.filter(function (point) { return point.color == null; }).forEach(function (point) {
-				point.color = color;
-
-				// TODO: What the heck? Why can't I find the color input?
-				/*console.log("input[type=color][index=\"" + selectedIndex + "\"]");
-				console.log(selectedIndex);
-				console.log(holder)
-				console.log(holder.querySelector("input[type=color][index=\"" + selectedIndex + "\"]"));//.value = color;*/
+			console.log("Selected color " + color + " from picker.");
+			pixels.filter(function (pixel) { return pixel.color == null || pixel.index == selectedIndex; }).forEach(function (pixel) {
+				pixel.color = color;
+				holder.querySelector("input[type=color][index=\"" + pixel.index + "\"]").value = color;
 			});
 			selectedIndex = null;
-		} else {
-			let mouseImagePos = mouseStartPos.toImageScale(); // Converts mouse position to a pixel on the image.
-			if (points.filter(function (element) {
-				return element.pos.x == mouseImagePos.x && element.pos.y == mouseImagePos.y;
-			}).length > 0) {
-				console.log("Point already exists.");
-			}
-			else if (mouseImagePos.x >= 0 && mouseImagePos.y >= 0 && mouseImagePos.x < image.element.width && mouseImagePos.y < image.element.height) {
-				let point = new Point(mouseImagePos)
-				points.push(point);
-				if (selectedIndex == null) {
-					selectedIndex = point.index;
-				}
+			draw();
+			return;
+		}
+		let mouseImagePos = mouseStartPos.toImageScale(); // Converts mouse position to a pixel on the image.
 
-				let copy = template.cloneNode(true);
-				copy.querySelector("legend").innerHTML = "Point " + point.index;
+		// Checks if the click was out of bounds.
+		if (mouseImagePos.x < 0 || mouseImagePos.y < 0 || mouseImagePos.x >= image.element.width || mouseImagePos.y >= image.element.height) {
+			console.log("Cannot select pixel out of bounds.");
+			return;
+		}
 
-				let x = copy.querySelector("input[name=x]");
-				x.index = point.index;
-				x.value = point.pos.x;
-				x.max = image.element.width - 1;
-				x.addEventListener("change", movePixel);
-
-				let y = copy.querySelector("input[name=y]");
-				y.index = point.index;
-				y.value = point.pos.y;
-				y.max = image.element.height - 1;
-				y.addEventListener("change", movePixel);
-
-				let color = copy.querySelector("input[type=color]");
-				color.index = point.index;
-				color.addEventListener("input", colorPixel);
-
-				copy.style = "";
-				let current = canvas.scrollTop;
-				holder.appendChild(copy);
-				canvas.scrollTop = current;
-
-				submitButton.value = "Change " + points.length + " pixels for " + points.length * 3 + "kr";
-				submitButton.disabled = points.length <= 0;
+		// Checks if an existing pixel was selected.
+		for (let i = 0; i < pixels.length; i++) {
+			let pixel = pixels[i];
+			if (pixel.pos.x == mouseImagePos.x && pixel.pos.y == mouseImagePos.y) {
+				console.log("Selected pixel " + pixel.index + ".");
+				selectedIndex = pixel.index;
 				draw();
-			} else {
-				console.log("Point out of bounds.");
+				return;
 			}
 		}
+
+		// Adds new pixel.
+		let pixel = new Pixel(mouseImagePos)
+		console.log("Created pixel " + pixel.index + ".");
+		pixels.push(pixel);
+		if (selectedIndex == null) {
+			selectedIndex = pixel.index;
+		}
+
+		let copy = template.cloneNode(true);
+		copy.querySelector("legend").innerHTML = "Pixel " + pixel.index;
+		copy.index = pixel.index;
+
+		let xInput = copy.querySelector("input[name=x]");
+		xInput.setAttribute("index", pixel.index);
+		xInput.value = pixel.pos.x;
+		xInput.max = image.element.width - 1;
+		xInput.addEventListener("change", movePixel);
+
+		let yInput = copy.querySelector("input[name=y]");
+		yInput.setAttribute("index", pixel.index);
+		yInput.value = pixel.pos.y;
+		yInput.max = image.element.height - 1;
+		yInput.addEventListener("change", movePixel);
+
+		let colorInput = copy.querySelector("input[type=color]");
+		colorInput.setAttribute("index", pixel.index); // Need to do this for custom attributes for some reason.
+		colorInput.addEventListener("input", colorPixel);
+
+		copy.style = "";
+
+		//let current = canvas.scrollTop;
+		holder.appendChild(copy);
+		//canvas.scrollTop = current;
+
+		submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
+		submitButton.disabled = pixels.length <= 0;
+		draw();
 	}
-	mouseStartPos = null;
-	mouseDrag = false
 });
 canvas.addEventListener("mouseleave", function (e) {
-	mouseStartPos = null;
 	mouseDrag = false
 });
 canvas.addEventListener("wheel", function (e) { // TODO: Reposition image so that mouse is at center of zoom.
@@ -431,3 +474,4 @@ function resize() {
 }
 resize();
 window.addEventListener("resize", resize);
+showCheckbox.addEventListener("change", draw);

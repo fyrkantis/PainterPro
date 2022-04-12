@@ -1,26 +1,19 @@
 ﻿/* Uses variables from style.css */
 
-.holder div {
+.holder.pixel > * {
 	width: max-content;
 
 	margin: var(--quarterSpace);
 	padding: var(--quarterSpace);
-
-	background-color: #dddddd;
 }
 
-div.flexHolder {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-.canvasHolder {
+.holder.canvas {
 	height: 80vh;
 
 	flex-grow: 0.9;
 	overflow: hidden;
 }
 
-.canvasHolder > * {
+.holder.canvas > * {
 	margin: 0px;
 }

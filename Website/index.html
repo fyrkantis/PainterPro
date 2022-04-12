@@ -17,44 +17,40 @@
 			<h1>Painter Pro&trade;</h1>
 			<hr>
 			<p>The greatest scam ever</p>
-			<h2>Change pixels</h2>
-			<div class="flexHolder">
-				<form action="/index.html" method="post" autocomplete="off">
-					<datalist id="colors">
-						<option>#ff0000</option>
-						<option>#ffff00</option>
-						<option>#00ff00</option>
-						<option>#00ffff</option>
-						<option>#0000ff</option>
-						<option>#ff00ff</option>
-						<option>#ffffff</option>
-						<option>#aaaaaa</option>
-						<option>#000000</option>
-					</datalist>
-					<fieldset>
-						<legend>Selected pixels</legend>
-						<!-- The selected pixel box template to be cloned into the holder below. -->
-						<fieldset class="noBorder" id="selectedPixelTemplate" style="display: none;">
-							<legend>Point</legend>
-							<label for="x">X:</label>
-							<input name="x" type="number" min="0">
-							<label for="y">Y:</label>
-							<input name="y" type="number" min="0">
-							<br>
-							<input name="color" type="color" list="colors" aaaaa="bbbbb">
-						</fieldset>
-						
-
-						<div class="holder" id="selectedPixelsHolder"></div>
-						<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
-						<input id="submitButton" type="submit" value="Change 0 pixels for 0kr" disabled>
-					</fieldset>
-				</form>
-				<div class="canvasHolder">
-					<img id="paintingImage" src="/assets/painting.png" style="display: none;">
-					<canvas id="paintingCanvas"></canvas>
-				</div>
+			<div class="holder canvas">
+				<img id="paintingImage" src="/assets/painting.png" style="display: none;">
+				<canvas id="paintingCanvas"></canvas>
 			</div>
+			<input name="show" id="show" type="checkbox" checked><label for="show">Show selected checkbox frames</label>
+			<h2>Selected pixels</h2>
+			<form action="/index.html" method="post" autocomplete="off">
+				<datalist id="colors">
+					<option>#ff0000</option>
+					<option>#ffff00</option>
+					<option>#00ff00</option>
+					<option>#00ffff</option>
+					<option>#0000ff</option>
+					<option>#ff00ff</option>
+					<option>#ffffff</option>
+					<option>#aaaaaa</option>
+					<option>#000000</option>
+				</datalist>
+				<!-- The selected pixel box template to be cloned into the holder below. -->
+				<fieldset id="selectedPixelTemplate" style="display: none;">
+					<legend>Pixel</legend>
+					<label for="x">X:</label>
+					<input name="x" type="number" min="0">
+					<label for="y">Y:</label>
+					<input name="y" type="number" min="0">
+					<br>
+					<input name="color" type="color" list="colors" index="1">
+				</fieldset>
+
+				<div class="holder pixel" id="selectedPixelsHolder"></div>
+
+				<p class="error" id="formError">No pixels selected, click the image to select pixels.</p>
+				<input id="submitButton" type="submit" value="Change 0 pixels for 0kr" disabled>
+			</form>
 		</article>
 	</main>
 </body>
