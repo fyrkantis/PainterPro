@@ -427,6 +427,9 @@ canvas.addEventListener("mouseup", function (e) {
 				}
 				draw();
 				return;
+			} else if (picker != null && mouseStartPos.x > picker.pos.x && mouseStartPos.y > picker.pos.y && mouseStartPos.x < picker.pos.x + picker.size.x && mouseStartPos.y < picker.pos.y + picker.size.y) {
+				console.log("Clicked empty space in color clicker.")
+				return;
 			}
 		}
 
