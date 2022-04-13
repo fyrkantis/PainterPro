@@ -1,4 +1,6 @@
-﻿var canvas = document.getElementById("paintingCanvas");
+﻿// Beware: 500+ lines of jank below.
+
+var canvas = document.getElementById("paintingCanvas");
 var ctx = canvas.getContext("2d");
 var image = { element: document.getElementById("paintingImage") };
 var template = document.getElementById("selectedPixelTemplate");
@@ -10,6 +12,7 @@ const zoomMax = Math.pow(2, 8);
 const zoomMin = Math.pow(2, -2);
 const fontSize = 12;
 const fontPadding = 2;
+const removeRadius = 24;
 
 var colorOptions = document.getElementById("colors").getElementsByTagName("option");
 var colors = [];
@@ -39,9 +42,9 @@ function Picker(index) {
 		x: image.pos.x + pixel.pos.x * globalPos.scale,
 		y: image.pos.y + pixel.pos.y * globalPos.scale
 	};
-	if (this.pos.x < canvas.width / 2) { this.pos.x += globalPos.scale; }
+	if (this.pos.x > canvas.width / 2) { this.pos.x += globalPos.scale; }
 	else { this.pos.x -= this.size.x; }
-	if (this.pos.y > canvas.height / 2) { this.pos.y -= this.size.y - globalPos.scale; }
+	if (this.pos.y < canvas.height / 2) { this.pos.y -= this.size.y - globalPos.scale; }
 
 	this.getBox = function (boxIndex) {
 		let xIndex = boxIndex % this.rowLength;
@@ -78,7 +81,7 @@ function Position(pos) {
 		return this.getDistanceXY({ x: e.clientX, y: e.clientY });
 	},
 	this.toImageScale = function () {
-		return { x: Math.floor((this.x - image.pos.x) / globalPos.scale), y: Math.floor((this.y - image.pos.y) / globalPos.scale) };
+		return { x: (this.x - image.pos.x) / globalPos.scale, y: (this.y - image.pos.y) / globalPos.scale };
 	}
 }
 function EventPosition(e) {
@@ -91,9 +94,12 @@ var selectedIndex = null;
 function Pixel(pos, element) {
 	this.index = pixelIndex;
 	pixelIndex++;
-	this.pos = pos;
+	this.pos = { x: Math.floor(pos.x), y: Math.floor(pos.y) };
 	this.element = element;
 	this.color = null;
+	this.hasRemoveButton = function () {
+		return this.index == selectedIndex && globalPos.scale >= removeRadius * 2
+	}
 }
 
 // The global transformation of everything.
@@ -158,6 +164,7 @@ function draw() {
 	});
 
 	if (showCheckbox.checked) {
+		ctx.strokeStyle = "#000000";
 		// Draws pixel frames.
 		pixels.forEach(function (pixel) {
 			let x = image.pos.x + pixel.pos.x * globalPos.scale;
@@ -188,12 +195,33 @@ function draw() {
 			ctx.fill();
 
 			// Draws pixel index.
-			ctx.strokeStyle = "#000000";
-			ctx.fillStyle = "#ffffff";
-			ctx.lineWidth = 4;
 			if (globalPos.scale >= fontSize + fontPadding * 2) {
+				ctx.fillStyle = "#ffffff";
+				ctx.lineWidth = 4;
 				ctx.strokeText(pixel.index, x + fontPadding, y + fontPadding);
 				ctx.fillText(pixel.index, x + fontPadding, y + fontPadding);
+			}
+			// Draws corner X.
+			if (pixel.hasRemoveButton()) {
+				ctx.lineWidth = 2;
+				let thickness = 4;
+				ctx.fillStyle = "#ff0000";
+				ctx.beginPath();
+				ctx.moveTo(x + globalPos.scale, y + thickness);
+				ctx.lineTo(x + globalPos.scale - (removeRadius - thickness) / 2, y + removeRadius / 2);
+				ctx.lineTo(x + globalPos.scale, y + removeRadius - thickness);
+				ctx.lineTo(x + globalPos.scale - thickness, y + removeRadius);
+				ctx.lineTo(x + globalPos.scale - removeRadius / 2, y + (removeRadius + thickness) / 2);
+				ctx.lineTo(x + globalPos.scale - removeRadius + thickness, y + removeRadius);
+				ctx.lineTo(x + globalPos.scale - removeRadius, y + removeRadius - thickness);
+				ctx.lineTo(x + globalPos.scale - (removeRadius + thickness) / 2, y + removeRadius / 2);
+				ctx.lineTo(x + globalPos.scale - removeRadius, y + thickness);
+				ctx.lineTo(x + globalPos.scale - removeRadius + thickness, y);
+				ctx.lineTo(x + globalPos.scale - removeRadius / 2, y + (removeRadius - thickness) / 2);
+				ctx.lineTo(x + globalPos.scale - thickness, y);
+				ctx.closePath();
+				ctx.stroke();
+				ctx.fill();
 			}
 		});
 	}
@@ -225,7 +253,7 @@ function draw() {
 	let text;
 	if (mouseLastPos != null) {
 		let mouseImagePos = mouseLastPos.toImageScale(); // Converts mouse position to a pixel on the image.
-		text = "X: " + mouseImagePos.x + ", Y: " + mouseImagePos.y;
+		text = "X: " + Math.floor(mouseImagePos.x) + ", Y: " + Math.floor(mouseImagePos.y);
 	} else {
 		text = "X: ?, Y: ?"
 	}
@@ -317,6 +345,24 @@ canvas.ontouchmove = function (e) {
 	e.preventDefault();
 };
 
+function removePixel(pixel = null, arrayIndex = null) {
+	if (pixel == null && arrayIndex != null) {
+		pixel = getPixel(arrayIndex);
+	}
+	if (arrayIndex == null && pixel != null) {
+		arrayIndex = pixels.indexOf(pixel);
+	}
+	pixel.element.remove();
+	pixels.splice(arrayIndex, 1);
+	selectNewPixel();
+	updateButton();
+}
+
+function updateButton() {
+	submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
+	submitButton.disabled = pixels.length <= 0;
+}
+
 // Mouse support.
 var mouseDrag = false;
 var mouseLastPos;
@@ -363,21 +409,20 @@ canvas.addEventListener("mouseup", function (e) {
 		// Checks if an existing pixel was clicked.
 		for (let i = 0; i < pixels.length; i++) {
 			let pixel = pixels[i];
-			if (pixel.pos.x == mouseImagePos.x && pixel.pos.y == mouseImagePos.y) {
+			if (pixel.pos.x == Math.floor(mouseImagePos.x) && pixel.pos.y == Math.floor(mouseImagePos.y)) {
 				if (pixel.index != selectedIndex) {
 					console.log("Selected pixel " + pixel.index + ".");
 					selectedIndex = pixel.index;
 				} else {
-					if (pixel.color != null) {
+					if (pixel.color == null) {
+						console.log("Removed pixel " + pixel.index + " with X.");
+						removePixel(pixel, i);
+					} else if (pixel.hasRemoveButton() && mouseImagePos.x - pixel.pos.x > 1 - removeRadius / globalPos.scale && mouseImagePos.y - pixel.pos.x > 1 - removeRadius / globalPos.scale) {
+						console.log("Removed pixel " + pixel.index + " by deselecting.");
+						removePixel(pixel, i);
+					} else {
 						console.log("Deselected pixel " + pixel.index + ".");
 						selectNewPixel();
-					} else {
-						console.log("Removed pixel " + pixel.index + ".");
-						pixel.element.remove();
-						pixels.splice(i, 1);
-						selectNewPixel();
-						submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
-						submitButton.disabled = pixels.length <= 0;
 					}
 				}
 				draw();
@@ -412,17 +457,22 @@ canvas.addEventListener("mouseup", function (e) {
 		colorInput.addEventListener("input", colorPixel);
 
 		pixel.element.querySelector("input[name=select").addEventListener("click", function (e) {
-			console.log("Selected pixel " + pixel.index + " with button.")
-			selectedIndex = pixel.index;
+			if (pixel.index != selectedIndex) {
+				console.log("Selected pixel " + pixel.index + " with button.");
+				selectedIndex = pixel.index;
+			} else if (pixel.color == null) {
+				console.log("Removed pixel " + pixel.index + " by deselecting with button.");
+				removePixel(pixel = pixel)
+			} else {
+				console.log("Deselected pixel " + pixel.index + " with button.");
+				selectNewPixel();
+			}
 			draw();
 		});
 
 		pixel.element.querySelector("input[name=remove").addEventListener("click", function (e) {
 			console.log("Removed pixel " + pixel.index + " with button.");
-			pixel.element.remove();
-			pixels.splice(pixels.indexOf(pixel), 1);
-			selectNewPixel();
-			submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
+			removePixel(pixel = pixel);
 			draw();
 		});
 
@@ -432,15 +482,14 @@ canvas.addEventListener("mouseup", function (e) {
 		holder.appendChild(pixel.element);
 		//canvas.scrollTop = current;
 
-		submitButton.value = "Change " + pixels.length + " pixels for " + pixels.length * 3 + "kr";
-		submitButton.disabled = pixels.length <= 0;
+		updateButton();
 		draw();
 	}
 });
 canvas.addEventListener("mouseleave", function (e) {
 	mouseDrag = false
 });
-canvas.addEventListener("wheel", function (e) { // TODO: Reposition image so that mouse is at center of zoom.
+canvas.addEventListener("wheel", function (e) {
 	globalPos.zoom(e.deltaY);
 	draw();
 });
@@ -448,27 +497,30 @@ canvas.addEventListener("wheel", function (e) { // TODO: Reposition image so tha
 // Touchscreen dragging support.
 var touchDrag = false;
 var touchLastPos;
+var touchStartPos;
 function handleTouch(e) {
+	let canvasPos;
+	if (e.touches.length == 1) {
+		canvasPos = getEventCanvasPos(e.touches[0]);
+		if (!touchDrag) {
+			touchStartPos = new Position(canvasPos);
+		}
+	}
 	touchDrag = e.touches.length == 1;
-	if (touchDrag != null) {
-		let canvasPos = getEventCanvasPos(e.touches[0])
-		globalPos.move(touchLastPos.getDistanceXY(canvasPos));
-		draw();
+	if (touchDrag) {
+		if (touchLastPos != null) {
+			globalPos.move(touchLastPos.getDistanceXY(canvasPos));
+			draw();
+		}
 		touchLastPos = new Position(canvasPos);
 	} else {
 		touchLastPos = null;
+		touchStartPos = null;
 	}
 	
 }
 canvas.addEventListener("touchmove", handleTouch);
-canvas.addEventListener("touchstart", function (e) {
-	touchDrag = e.touches.length == 1;
-	if (touchDrag != null) {
-		touchLastPos = new Position(getEventCanvasPos(e.touches[0]));
-	} else {
-		touchLastPos = null;
-	}
-});
+canvas.addEventListener("touchstart", handleTouch);
 canvas.addEventListener("touchend", handleTouch);
 canvas.addEventListener("touchcancel", handleTouch);
 
