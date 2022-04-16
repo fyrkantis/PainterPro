@@ -3,6 +3,7 @@ using Scriban.Parsing;
 using Scriban.Runtime;
 using System.Net;
 using System.Text;
+using System.Web;
 
 namespace PainterPro
 {
@@ -30,7 +31,7 @@ namespace PainterPro
 
 			if (request.HttpMethod.ToLower() == "post")
 			{
-				HandlePost(request);
+				Console.WriteLine(HandlePost(request));
 			}
 
 			string path = Path.Combine(currentDirectory, "Website\\", request.Url.LocalPath.Replace('/', '\\').TrimStart('\\'));
@@ -81,8 +82,33 @@ namespace PainterPro
 			{
 				text = reader.ReadToEnd();
 			}
-			Console.WriteLine(text);
-			return "Idk?";
+			Dictionary<string, string> fields = new Dictionary<string, string>();
+			string? phone = null;
+			string[] rawFields = text.Split('&');
+			foreach (string rawField in rawFields)
+			{
+				string[] pair = rawField.Split('=', 2);
+				if (pair.Length == 2)
+				{
+					string key = pair[0];
+					string value = HttpUtility.UrlDecode(pair[1]);
+					if (key == "phone")
+					{
+						phone = value;
+					}
+					fields.Add(key, value);
+				}
+			}
+			if (phone != null)
+			{
+				DrawRequest drawRequest = new DrawRequest(phone, fields);
+				return "Successfully handled post request.";
+			}
+			else
+			{
+				return "Failed to handle post request because of missing phone number field.";
+			}
+			
 		}
 
 		public static void SendError(this HttpListenerResponse response, int code, string message, string body = "")

@@ -17,46 +17,52 @@
 			<h1>Painter Pro&trade;</h1>
 			<hr>
 			<p>The greatest scam ever</p>
+
+			<!-- All default colors. -->
+			<datalist id="colors">
+				<option>#ff0000</option> <!-- Red -->
+				<option>#ffaa00</option> <!-- Orange -->
+				<option>#aa5500</option> <!-- Brown -->
+				<option>#ffff00</option> <!-- Yellow -->
+				<option>#00ff00</option> <!-- Green -->
+				<option>#00aa00</option> <!-- Dark green -->
+				<option>#00ffff</option> <!-- Cyan -->
+				<option>#00aaff</option> <!-- Light blue -->
+				<option>#0000ff</option> <!-- Blue -->
+				<option>#ffffff</option> <!-- White -->
+				<option>#ff00ff</option> <!-- Magenta -->
+				<option>#aa00ff</option> <!-- Purple -->
+				<option>#aaaaaa</option> <!-- Light grey -->
+				<option>#555555</option> <!-- Dark grey -->
+				<option>#000000</option> <!-- Black -->
+			</datalist>
+
 			<div class="holder canvas">
 				<img id="paintingImage" src="/assets/painting.png" style="display: none;">
 				<canvas id="paintingCanvas"></canvas>
 			</div>
 			<input name="show" id="show" type="checkbox" checked><label for="show">Show pixel frames</label>
 			<h2>Selected pixels</h2>
+
+			<!-- The selected pixel box template to be cloned into the holder below. -->
+			<fieldset id="selectedPixelTemplate" style="display: none;">
+				<legend>Pixel</legend>
+				<input type="button" name="select" value="Select">
+				<input type="button" name="remove" value="Remove">
+				<br>
+				<label for="x">X:</label>
+				<input name="x" type="number" min="0">
+				<label for="y">Y:</label>
+				<input name="y" type="number" min="0">
+				<br>
+				<input name="color" type="color" list="colors" index="1">
+			</fieldset>
 			<form action="/index.html" method="post" autocomplete="off">
 				<p class="error" id="errorText" style="display: none"></p>
 				<input id="submitButton" type="submit" value="Change 0 pixels for 0kr" disabled>
-
-				<datalist id="colors">
-					<option>#ff0000</option> <!-- Red -->
-					<option>#ffaa00</option> <!-- Orange -->
-					<option>#aa5500</option> <!-- Brown -->
-					<option>#ffff00</option> <!-- Yellow -->
-					<option>#00ff00</option> <!-- Green -->
-					<option>#00aa00</option> <!-- Dark green -->
-					<option>#00ffff</option> <!-- Cyan -->
-					<option>#00aaff</option> <!-- Light blue -->
-					<option>#0000ff</option> <!-- Blue -->
-					<option>#ffffff</option> <!-- White -->
-					<option>#ff00ff</option> <!-- Magenta -->
-					<option>#aa00ff</option> <!-- Purple -->
-					<option>#aaaaaa</option> <!-- Light grey -->
-					<option>#555555</option> <!-- Dark grey -->
-					<option>#000000</option> <!-- Black -->
-				</datalist>
-				<!-- The selected pixel box template to be cloned into the holder below. -->
-				<fieldset id="selectedPixelTemplate" style="display: none;">
-					<legend>Pixel</legend>
-					<input type="button" name="select" value="Select">
-					<input type="button" name="remove" value="Remove">
-					<br>
-					<label for="x">X:</label>
-					<input name="x" type="number" min="0">
-					<label for="y">Y:</label>
-					<input name="y" type="number" min="0">
-					<br>
-					<input name="color" type="color" list="colors" index="1">
-				</fieldset>
+				<br>
+				<label for="phone">Phone number</label>
+				<input name="phone" type="tel" required>
 				<div class="holder pixel" id="selectedPixelsHolder"></div>
 			</form>
 		</article>
