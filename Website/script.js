@@ -433,7 +433,7 @@ canvas.addEventListener("mouseup", function (e) {
 			}
 		}
 
-		// Adds new pixel on this vacant space.
+		// Adds new pixel on this space.
 		let pixel = new Pixel(mouseImagePos, template.cloneNode(true))
 		console.log("Created pixel " + pixel.index + ".");
 		pixels.push(pixel);
@@ -444,19 +444,22 @@ canvas.addEventListener("mouseup", function (e) {
 		pixel.element.index = pixel.index;
 
 		let xInput = pixel.element.querySelector("input[name=x]");
-		xInput.setAttribute("index", pixel.index);
+		xInput.setAttribute("index", pixel.index); // Need to do this for custom attributes for some reason.
+		xInput.name = pixel.index + "x";
 		xInput.value = pixel.pos.x;
 		xInput.max = image.element.width - 1;
 		xInput.addEventListener("change", movePixel);
 
 		let yInput = pixel.element.querySelector("input[name=y]");
 		yInput.setAttribute("index", pixel.index);
+		yInput.name = pixel.index + "y";
 		yInput.value = pixel.pos.y;
 		yInput.max = image.element.height - 1;
 		yInput.addEventListener("change", movePixel);
 
-		let colorInput = pixel.element.querySelector("input[type=color]");
-		colorInput.setAttribute("index", pixel.index); // Need to do this for custom attributes for some reason.
+		let colorInput = pixel.element.querySelector("input[name=color]");
+		colorInput.setAttribute("index", pixel.index);
+		colorInput.name = pixel.index + "color";
 		colorInput.addEventListener("input", colorPixel);
 
 		pixel.element.querySelector("input[name=select").addEventListener("click", function (e) {

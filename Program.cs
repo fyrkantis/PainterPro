@@ -7,17 +7,15 @@ using System.Web;
 
 namespace PainterPro
 {
-	public static class PainterPro
+	public static class Website
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
-		public static async Task HandleConnectionAsync(this HttpListenerContext context)
+		
+		public static void HandleConnection(this HttpListenerContext context)
 		{
 			HttpListenerRequest request = context.Request;
 			HttpListenerResponse response = context.Response;
 			Stream output = response.OutputStream;
-
-			
-
 			if (request.Url == null)
 			{
 				response.SendError(400, "Bad Request", "No requested URL was specified.");
@@ -82,6 +80,8 @@ namespace PainterPro
 			{
 				text = reader.ReadToEnd();
 			}
+			Console.WriteLine(text);
+
 			Dictionary<string, string> fields = new Dictionary<string, string>();
 			string? phone = null;
 			string[] rawFields = text.Split('&');
@@ -96,12 +96,16 @@ namespace PainterPro
 					{
 						phone = value;
 					}
-					fields.Add(key, value);
+					else if (!fields.ContainsKey(key))
+					{
+							fields.Add(key, value);
+					}
 				}
 			}
 			if (phone != null)
 			{
 				DrawRequest drawRequest = new DrawRequest(phone, fields);
+				drawRequest.Draw();
 				return "Successfully handled post request.";
 			}
 			else
@@ -159,13 +163,21 @@ namespace PainterPro
 	{
 		public static void Main()
 		{
+			Console.WriteLine(Website.currentDirectory);
 			HttpListener listener = new HttpListener();
 			listener.Prefixes.Add("http://localhost:5000/");
 			listener.Start();
+			listener.Listen();
+		}
+
+		public static async void Listen(this HttpListener listener)
+		{
 			while (true)
 			{
-				Console.Write("Awaiting connection...");
-				Task task = listener.GetContext().HandleConnectionAsync();
+				Console.Write("\r\nAwaiting connection...");
+				HttpListenerContext context = listener.GetContext();
+				Console.Write(" Connected");
+				Task.Run(() => context.HandleConnection());
 			}
 		}
 	}
