@@ -1,12 +1,14 @@
 ﻿// Beware: 500+ lines of jank below.
 
-var canvas = document.getElementById("paintingCanvas");
-var ctx = canvas.getContext("2d");
-var image = { element: document.getElementById("paintingImage") };
-var template = document.getElementById("selectedPixelTemplate");
-var holder = document.getElementById("selectedPixelsHolder");
-var submitButton = document.getElementById("submitButton");
-var showCheckbox = document.getElementById("show");
+import { colors, getCanvasPos, getEventCanvasPos } from "/paintMethods.js";
+
+const canvas = document.getElementById("paintingCanvas");
+var ctx = canvas.getContext("2d"); // const prevents colored pixels from being removed.
+const image = { element: document.getElementById("paintingImage") };
+const template = document.getElementById("selectedPixelTemplate");
+const holder = document.getElementById("selectedPixelsHolder");
+const submitButton = document.getElementById("submitButton");
+const showCheckbox = document.getElementById("show");
 
 const zoomMax = Math.pow(2, 8);
 const zoomMin = Math.pow(2, -2);
@@ -14,76 +16,67 @@ const fontSize = 12;
 const fontPadding = 2;
 const removeRadius = 24;
 
-var colorOptions = document.getElementById("colors").getElementsByTagName("option");
-var colors = [];
-for (let i = 0; i < colorOptions.length; i++) {
-	colors.push(colorOptions[i].value)
-}
-
+// Contains the latest position of the color picker.
 var picker;
-function Picker(index) {
-	this.margin = { x: 10, y: 10 };
-	this.rowLength = 3;
-	this.box = {
-		size: { x: 20, y: 20 },
-		distance: { x: 5, y: 5 }
-	};
-	this.length = {
-		x: Math.min(colors.length, this.rowLength),
-		y: Math.floor(colors.length / this.rowLength)
-	};
-	this.size = {
-		x: this.margin.x * 2 + this.box.size.x * this.length.x + this.box.distance.x * (this.length.x - 1),
-		y: this.margin.y * 2 + this.box.size.y * this.length.y + this.box.distance.y * (this.length.y - 1)
-	};
+class Picker {
+	constructor(index) {
+		this.margin = { x: 10, y: 10 };
+		this.rowLength = 3;
+		this.box = {
+			size: { x: 20, y: 20 },
+			distance: { x: 5, y: 5 }
+		};
+		this.length = {
+			x: Math.min(colors.length, this.rowLength),
+			y: Math.floor(colors.length / this.rowLength)
+		};
+		this.size = {
+			x: this.margin.x * 2 + this.box.size.x * this.length.x + this.box.distance.x * (this.length.x - 1),
+			y: this.margin.y * 2 + this.box.size.y * this.length.y + this.box.distance.y * (this.length.y - 1)
+		};
 
-	let pixel = getPixel(index);
-	this.pos = {
-		x: image.pos.x + pixel.pos.x * globalPos.scale,
-		y: image.pos.y + pixel.pos.y * globalPos.scale
-	};
-	if (this.pos.x > canvas.width / 2) { this.pos.x += globalPos.scale; }
-	else { this.pos.x -= this.size.x; }
-	if (this.pos.y < canvas.height / 2) { this.pos.y -= this.size.y - globalPos.scale; }
+		let pixel = getPixel(index);
+		this.pos = {
+			x: image.pos.x + pixel.pos.x * globalPos.scale,
+			y: image.pos.y + pixel.pos.y * globalPos.scale
+		};
+		if (this.pos.x > canvas.width / 2) { this.pos.x += globalPos.scale; }
+		else { this.pos.x -= this.size.x; }
+		if (this.pos.y < canvas.height / 2) { this.pos.y -= this.size.y - globalPos.scale; }
+	}
 
-	this.getBox = function (boxIndex) {
+	getBox(boxIndex) {
 		let xIndex = boxIndex % this.rowLength;
 		let yIndex = Math.floor(boxIndex / this.rowLength);
 		return {
 			x: this.pos.x + this.margin.x + this.box.size.x * xIndex + this.box.distance.x * xIndex,
 			y: this.pos.y + this.margin.y + this.box.size.y * yIndex + this.box.distance.y * yIndex
 		};
-	};
-}
-
-// Gets mouse coordinates on canvas.
-function getCanvasPos(pos) {
-	let rect = canvas.getBoundingClientRect();
-	return { x: pos.x - rect.left, y: pos.y - rect.top };
-}
-function getEventCanvasPos(e) {
-	return getCanvasPos({ x: e.clientX, y: e.clientY })
-}
-
-function Position(pos) {
-	this.x = pos.x;
-	this.y = pos.y;
-	this.getDistance = function (pos) {
-		return Math.sqrt(Math.pow(pos.x - this.x, 2) + Math.pow(pos.y - this.y, 2));
 	}
-	this.getEventDistance = function (e) {
-		return this.getDistance({ x: e.clientX, y: e.clientY });
-	},
-	this.getDistanceXY = function (pos) {
+}
+
+class Position {
+	constructor(pos) {
+		this.x = pos.x;
+		this.y = pos.y;
+	}
+	getDistance(pos) {
+	return Math.sqrt(Math.pow(pos.x - this.x, 2) + Math.pow(pos.y - this.y, 2));
+	}
+	getEventDistance(e) {
+	return this.getDistance({ x: e.clientX, y: e.clientY });
+	}
+	getDistanceXY(pos) {
 		return { x: pos.x - this.x, y: pos.y - this.y };
-	},
-	this.getEventDistanceXY = function (e) {
+	}
+	getEventDistanceXY(e) {
 		return this.getDistanceXY({ x: e.clientX, y: e.clientY });
-	},
-	this.toImageScale = function () {
+	}
+	toImageScale() {
 		return { x: (this.x - image.pos.x) / globalPos.scale, y: (this.y - image.pos.y) / globalPos.scale };
 	}
 }
+	
 function EventPosition(e) {
 	return Position({ x: e.clientX, y: e.clientY });
 }
@@ -91,19 +84,21 @@ function EventPosition(e) {
 var pixels = [];
 var pixelIndex = 0;
 var selectedIndex = null;
-function Pixel(pos, element) {
-	this.index = pixelIndex;
-	pixelIndex++;
-	this.pos = { x: Math.floor(pos.x), y: Math.floor(pos.y) };
-	this.element = element;
-	this.color = null;
-	this.hasRemoveButton = function () {
+class Pixel {
+	constructor(pos, element) {
+		this.index = pixelIndex;
+		pixelIndex++;
+		this.pos = { x: Math.floor(pos.x), y: Math.floor(pos.y) };
+		this.element = element;
+		this.color = null;
+	}
+	hasRemoveButton() {
 		return this.index == selectedIndex && globalPos.scale >= removeRadius * 2
 	}
 }
 
 // The global transformation of everything.
-var globalPos = {
+const globalPos = {
 	x: 0.5,
 	y: 0.5,
 	scale: 2,
@@ -368,7 +363,7 @@ var mouseDrag = false;
 var mouseLastPos;
 var mouseStartPos;
 canvas.addEventListener("mousemove", function (e) {
-	let canvasPos = getEventCanvasPos(e);
+	let canvasPos = getEventCanvasPos(e, canvas);
 	if (mouseLastPos && mouseDrag) {
 		globalPos.move(mouseLastPos.getDistanceXY(canvasPos)); // Moves the global transformation by the distance between last mouse pos and current mouse pos.
 	}
@@ -376,7 +371,7 @@ canvas.addEventListener("mousemove", function (e) {
 	draw();
 });
 canvas.addEventListener("mousedown", function (e) {
-	let canvasPos = getEventCanvasPos(e);
+	let canvasPos = getEventCanvasPos(e, canvas);
 	mouseLastPos = new Position(canvasPos);
 	mouseStartPos = new Position(canvasPos);
 	mouseDrag = true;
@@ -385,7 +380,7 @@ canvas.addEventListener("mouseup", function (e) {
 	mouseDrag = false
 
 	// Decides what should happen on click (not just end of drag).
-	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e)) <= 10) {
+	if (mouseStartPos != null && mouseStartPos.getDistance(getEventCanvasPos(e, canvas)) <= 10) {
 		// Checks if a color box was clicked.
 		let color = getPickerColor(mouseStartPos);
 		if (color != null) {
@@ -507,7 +502,7 @@ var touchStartPos;
 function handleTouch(e) {
 	let canvasPos;
 	if (e.touches.length == 1) {
-		canvasPos = getEventCanvasPos(e.touches[0]);
+		canvasPos = getEventCanvasPos(e.touches[0], canvas);
 		if (!touchDrag) {
 			touchStartPos = new Position(canvasPos);
 		}
