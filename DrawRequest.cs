@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using SkiaSharp;
+using System.Drawing;
 using System.Text.RegularExpressions;
 
 public class DrawRequest
@@ -8,46 +9,59 @@ public class DrawRequest
 	public DrawRequest(string phone, Dictionary<string, string> fields)
 	{
 		this.phone = phone;
+
+		// Goes through all fields and adds them to corresponding PixelRequests.
 		foreach (KeyValuePair<string, string> field in fields)
 		{
-			int index = Convert.ToInt32(char.GetNumericValue(field.Key[0])); // -1 means error.
-			if (index != -1)
+			Match keyParts = Regex.Match(field.Key, @"^(?<index>\d*)(?<key>\w*)$");
+			if (keyParts.Success && int.TryParse(keyParts.Groups["index"].Value, out int index))
 			{
-				if (pixels.ContainsKey(index))
+				string key = keyParts.Groups["key"].Value.ToLower();
+				if (!pixels.ContainsKey(index))
 				{
-					pixels[index].Add(field);
+					pixels.Add(index, new PixelRequest());
 				}
-				else
-				{
-					pixels.Add(index, new PixelRequest(field));
-				}
+				pixels[index].Add(key, field.Value);
 			}
+		}
+		foreach (KeyValuePair<int, PixelRequest> element in pixels.Where(element => !element.Value.IsComplete()).ToList()) // TODO: Find more elegant solution.
+		{
+			pixels.Remove(element.Key);
 		}
 	}
 
 	public void Draw()
 	{
-		Bitmap bitmap = (Bitmap)Image.FromFile(PainterPro.Website.currentDirectory + "\\Website\\Assets\\painting.png"); // TODO: Find cross-platform solution.
+		if (pixels.Count > 0)
+		{
+			string path = PainterPro.Website.currentDirectory + "\\Website\\Assets\\painting.png";
+			using (SKBitmap bitmap = SKBitmap.Decode(path))
+			using (FileStream stream = File.OpenWrite(path))
+			{
+				foreach (PixelRequest pixel in pixels.Values)
+				{
+					bitmap.SetPixel((int)pixel.x, (int)pixel.y, SKColor.Parse(pixel.color));
+				}
+				SKImage image = SKImage.FromBitmap(bitmap);
+				SKData data = image.Encode();
+				data.SaveTo(stream);
+			}
+		}
 	}
 
 	public class PixelRequest
 	{
-		int? x;
-		int? y;
-		string? color;
-		public PixelRequest(KeyValuePair<string, string> field)
-		{
-			Add(field);
-		}
+		public int? x;
+		public int? y;
+		public string? color;
 
-		public void Add(KeyValuePair<string, string> field)
+		public void Add(string key, string valueString)
 		{
-			string key = Regex.Replace(field.Key, @"^\d*", "").ToLower();
 			if (key == "color")
 			{
-				color = field.Value;
+				color = valueString;
 			}
-			else if (int.TryParse(field.Value, out int value))
+			else if (int.TryParse(valueString, out int value))
 			{
 				switch (key)
 				{
@@ -59,6 +73,11 @@ public class DrawRequest
 						break;
 				}
 			}
+		}
+
+		public bool IsComplete()
+		{
+			return x != null && y != null && color != null;
 		}
 	}
 }

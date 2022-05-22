@@ -46,10 +46,20 @@ namespace PainterPro
 			{
 				Console.Write(" Sending file '" + path + "'");
 				response.ContentLength64 = new FileInfo(path).Length;
-				using (Stream fileStream = File.OpenRead(path))
+
+				try
 				{
-					fileStream.CopyTo(output);
+					using (Stream fileStream = File.OpenRead(path))
+					{
+						fileStream.CopyTo(output);
+					}
 				}
+				catch (IOException)
+				{
+					response.SendError(503, "Service Unavailable", "The server encountered a temporary error when reading '" + request.RawUrl + "'.");
+					return;
+				}
+				
 			}
 			else
 			{
@@ -105,6 +115,7 @@ namespace PainterPro
 			if (phone != null)
 			{
 				DrawRequest drawRequest = new DrawRequest(phone, fields);
+				Console.WriteLine("Drawing...");
 				drawRequest.Draw();
 				return "Successfully handled post request.";
 			}
@@ -124,6 +135,7 @@ namespace PainterPro
 
 			byte[] bytes = Encoding.UTF8.GetBytes("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p></body></html>");
 			response.ContentLength64 = bytes.Length;
+			response.ContentType = "text/html";
 
 			Stream output = response.OutputStream;
 			output.Write(bytes);
