@@ -24,7 +24,7 @@ public class DrawRequest
 				pixels[index].Add(key, field.Value);
 			}
 		}
-		foreach (KeyValuePair<int, PixelRequest> element in pixels.Where(element => !element.Value.IsComplete()).ToList()) // TODO: Find more elegant solution.
+		foreach (KeyValuePair<int, PixelRequest> element in pixels.Where(element => !element.Value.IsComplete()).ToList()) // TODO: Find more elegant solution and handle non-colored pixels.
 		{
 			pixels.Remove(element.Key);
 		}

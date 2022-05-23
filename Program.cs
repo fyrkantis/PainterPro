@@ -21,10 +21,16 @@ namespace PainterPro
 				response.SendError(400, "Bad Request", "No requested URL was specified.");
 				return;
 			}
+			if (request.Url.LocalPath == "/index.html")
+			{
+				response.SendRedirect("/", 308, "Permanent Redirect");
+				return;
+			}
+			string path = Path.Combine(currentDirectory, "Website\\", request.Url.LocalPath.Replace('/', '\\').TrimStart('\\'));
 			if (request.Url.LocalPath == "/")
 			{
-				response.SendRedirect("/index.html", 308, "Permanent Redirect");
-				return;
+				path = Path.Combine(currentDirectory, "Website\\index.html");
+				
 			}
 
 			if (request.HttpMethod.ToLower() == "post")
@@ -32,7 +38,6 @@ namespace PainterPro
 				Console.WriteLine(HandlePost(request));
 			}
 
-			string path = Path.Combine(currentDirectory, "Website\\", request.Url.LocalPath.Replace('/', '\\').TrimStart('\\'));
 			if (!File.Exists(path))
 			{
 				response.SendError(404, "Not Found", "The requested file '" + request.RawUrl + "' could not be found.");
@@ -112,7 +117,7 @@ namespace PainterPro
 					}
 				}
 			}
-			if (phone != null)
+			if (/*phone != null*/true)
 			{
 				DrawRequest drawRequest = new DrawRequest(phone, fields);
 				Console.WriteLine("Drawing...");
@@ -177,7 +182,7 @@ namespace PainterPro
 		{
 			Console.WriteLine(Website.currentDirectory);
 			HttpListener listener = new HttpListener();
-			listener.Prefixes.Add("http://localhost:5000/");
+			listener.Prefixes.Add("http://+:50000/");
 			listener.Start();
 			listener.Listen();
 		}
