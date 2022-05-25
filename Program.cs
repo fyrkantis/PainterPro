@@ -3,6 +3,7 @@ using Scriban.Parsing;
 using Scriban.Runtime;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Web;
 
 namespace PainterPro
@@ -10,15 +11,25 @@ namespace PainterPro
 	public static class Website
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
+		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 		
-		public static void HandleConnection(this HttpListenerContext context)
+		public static async void HandleConnection(this HttpListenerContext context)
 		{
 			HttpListenerRequest request = context.Request;
 			HttpListenerResponse response = context.Response;
 			Stream output = response.OutputStream;
+			response.ContentEncoding = Encoding.UTF8;
+
+			if (request.HttpMethod.ToLower() == "post")
+			{
+				await HandlePostAsync(request, response);
+				return;
+			}
+
 			if (request.Url == null)
 			{
-				response.SendError(400, "Bad Request", "No requested URL was specified.");
+				response.Send(400, "Bad Request", "No requested URL was specified.");
 				return;
 			}
 			if (request.Url.LocalPath == "/index.html")
@@ -33,14 +44,9 @@ namespace PainterPro
 				
 			}
 
-			if (request.HttpMethod.ToLower() == "post")
-			{
-				Console.WriteLine(HandlePost(request));
-			}
-
 			if (!File.Exists(path))
 			{
-				response.SendError(404, "Not Found", "The requested file '" + request.RawUrl + "' could not be found.");
+				response.Send(404, "Not Found", "The requested file '" + request.RawUrl + "' could not be found.");
 				return;
 			}
 			
@@ -61,10 +67,10 @@ namespace PainterPro
 				}
 				catch (IOException)
 				{
-					response.SendError(503, "Service Unavailable", "The server encountered a temporary error when reading '" + request.RawUrl + "'.");
+					response.Send(503, "Service Unavailable", "The server encountered a temporary error when reading '" + request.RawUrl + "'.");
+					
 					return;
 				}
-				
 			}
 			else
 			{
@@ -82,12 +88,11 @@ namespace PainterPro
 				output.Write(data);
 			}
 			
-			output.Close();
 			response.Close();
 			Console.WriteLine(" Done!");
 		}
 
-		public static string HandlePost(HttpListenerRequest request)
+		public static async Task HandlePostAsync(HttpListenerRequest request, HttpListenerResponse response)
 		{
 			Console.WriteLine(" Reading post:");
 			string text;
@@ -98,7 +103,6 @@ namespace PainterPro
 			Console.WriteLine(text);
 
 			Dictionary<string, string> fields = new Dictionary<string, string>();
-			string? phone = null;
 			string[] rawFields = text.Split('&');
 			foreach (string rawField in rawFields)
 			{
@@ -107,44 +111,59 @@ namespace PainterPro
 				{
 					string key = pair[0];
 					string value = HttpUtility.UrlDecode(pair[1]);
-					if (key == "phone")
-					{
-						phone = value;
-					}
-					else if (!fields.ContainsKey(key))
+					if (!fields.ContainsKey(key))
 					{
 							fields.Add(key, value);
 					}
 				}
 			}
-			if (/*phone != null*/true)
+			DrawRequest drawRequest = new DrawRequest(fields);
+			if (drawRequest.pixels.Count >= 1)
 			{
-				DrawRequest drawRequest = new DrawRequest(phone, fields);
-				Console.WriteLine("Drawing...");
-				drawRequest.Draw();
-				return "Successfully handled post request.";
+				// Creates a JSON response with all values in appsettings.json, as well as some new ones.
+				Dictionary<string, string> contentFields = new Dictionary<string, string>(appsettings)
+				{
+					{ "currency", "SEK" },
+					{ "amount", "1" },
+					{ "message", "David testar, varsågod!" }
+				};
+
+				HttpClient client = new HttpClient();
+				client.BaseAddress = new Uri("https://mss.cpc.getswish.net");
+
+				FormUrlEncodedContent content = new FormUrlEncodedContent(contentFields);
+				string uuid = Guid.NewGuid().ToString();
+				
+
+				HttpResponseMessage swishResponse = await client.PostAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
+				Console.WriteLine(swishResponse.ToString());
+				response.Send(201, "Created", "Successfully received pixel drawing request.");
 			}
 			else
 			{
-				return "Failed to handle post request because of missing phone number field.";
+				response.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
 			}
-			
 		}
 
-		public static void SendError(this HttpListenerResponse response, int code, string message, string body = "")
+		public static void Send(this HttpListenerResponse response, int code, string message, string? body = "")
 		{
 			Console.WriteLine(" " + code.ToString() + ": " + message + ".");
 
 			response.StatusCode = code;
 			response.StatusDescription = message;
+			response.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p></body></html>");
+		}
 
-			byte[] bytes = Encoding.UTF8.GetBytes("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p></body></html>");
+		public static void SendBody(this HttpListenerResponse response, string body)
+		{
+			response.SendBody(Encoding.UTF8.GetBytes(body));
+		}
+		public static void SendBody(this HttpListenerResponse response, byte[] bytes)
+		{
 			response.ContentLength64 = bytes.Length;
 			response.ContentType = "text/html";
 
-			Stream output = response.OutputStream;
-			output.Write(bytes);
-			output.Close();
+			response.OutputStream.Write(bytes);
 			response.Close();
 		}
 
@@ -153,7 +172,6 @@ namespace PainterPro
 			response.StatusCode = code;
 			response.StatusDescription = message;
 			response.RedirectLocation = location;
-			response.OutputStream.Close();
 			response.Close();
 		}
 

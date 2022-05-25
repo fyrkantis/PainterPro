@@ -4,12 +4,9 @@ using System.Text.RegularExpressions;
 
 public class DrawRequest
 {
-	public string phone;
 	public Dictionary<int, PixelRequest> pixels = new Dictionary<int, PixelRequest>();
-	public DrawRequest(string phone, Dictionary<string, string> fields)
+	public DrawRequest(Dictionary<string, string> fields)
 	{
-		this.phone = phone;
-
 		// Goes through all fields and adds them to corresponding PixelRequests.
 		foreach (KeyValuePair<string, string> field in fields)
 		{
