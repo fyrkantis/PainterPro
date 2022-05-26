@@ -13,7 +13,12 @@ namespace PainterPro
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
-		public static X509Certificate2 certificate = new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish");
+		/*public static X509Certificate2Collection certificates = new X509Certificate2Collection()
+		{
+			//new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
+			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
+			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
+		};*/
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 		
@@ -130,22 +135,60 @@ namespace PainterPro
 					{ "amount", "1" },
 					{ "message", "David testar, varsågod!" }
 				};
+
+				string uuid = Guid.NewGuid().ToString().Replace("-", "");
+				Console.WriteLine(uuid);
+
+				// https://github.com/RickardPettersson/swish-api-csharp/issues/3
+				// https://stackoverflow.com/a/61681840
 				HttpClientHandler handler = new HttpClientHandler();
-				handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-				handler.ClientCertificates.Add(certificate);
-				handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+				
+				/*foreach(X509Certificate2 certificate in certificates)
+				{
+					handler.ClientCertificates.Add(certificate);
+				}*/
+				//handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+				//handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+
+				/*using (X509Store store = new X509Store(StoreName.CertificateAuthority, StoreLocation.LocalMachine))
+				{
+					store.Open(OpenFlags.ReadWrite);
+
+					var certs = new X509Certificate2Collection();
+					certs.Import(@"Swish_Merchant_TestCertificate_1234679304.p12", "swish", X509KeyStorageFlags.DefaultKeySet);
+
+					foreach (X509Certificate2 cert in certs)
+					{
+						if (cert.HasPrivateKey)
+						{
+							handler.ClientCertificates.Add(cert);
+						}
+						else
+						{
+							store.Add(cert);
+						}
+					}
+				}*/
+
 				HttpClient client = new HttpClient(handler);
 				client.BaseAddress = new Uri("https://mss.cpc.getswish.net");
 
 				FormUrlEncodedContent content = new FormUrlEncodedContent(contentFields);
-				string uuid = Guid.NewGuid().ToString();
 
 				try
 				{
-					HttpResponseMessage swishResponse = await client.PutAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
-					Console.WriteLine(swishResponse.ToString());
+					/*HttpListener swishListener = new HttpListener();
+					swishListener.Prefixes.Add("https://+:443/");
+					swishListener.Start();
+
+					Task<HttpListenerContext> swishConnection = swishListener.GetContextAsync();*/
+					Task<HttpResponseMessage> swishResponse = client.PutAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
+
+					Console.WriteLine((await swishResponse).ToString());
+					//Console.WriteLine((await swishConnection).ToString());
 					response.Send(201, "Created", "Successfully received pixel drawing request.");
-				} catch (Exception exception)
+				}
+				catch (Exception exception)
 				{
 					Console.WriteLine(exception.ToString());
 					response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
@@ -159,7 +202,7 @@ namespace PainterPro
 
 		public static void Send(this HttpListenerResponse response, int code, string message, string? body = "")
 		{
-			Console.WriteLine(" " + code.ToString() + ": " + message + ".");
+			Console.Write(" " + code.ToString() + ":" );
 
 			response.StatusCode = code;
 			response.StatusDescription = message;
@@ -168,6 +211,7 @@ namespace PainterPro
 
 		public static void SendBody(this HttpListenerResponse response, string body)
 		{
+			Console.WriteLine(" " + body + ".");
 			response.SendBody(Encoding.UTF8.GetBytes(body));
 		}
 		public static void SendBody(this HttpListenerResponse response, byte[] bytes)
@@ -210,15 +254,14 @@ namespace PainterPro
 	{
 		public static void Main()
 		{
-			// https://stackoverflow.com/a/33905011
+			// Certificate setup: https://stackoverflow.com/a/33905011
 			HttpListener listener = new HttpListener();
-			//listener.Prefixes.Add("http://+:50000/");
 			listener.Prefixes.Add("https://+:50000/");
 			listener.Start();
 			listener.Listen();
 		}
 
-		public static async void Listen(this HttpListener listener)
+		public static void Listen(this HttpListener listener)
 		{
 			while (true)
 			{
