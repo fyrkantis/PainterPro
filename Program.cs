@@ -2,6 +2,7 @@
 using Scriban.Parsing;
 using Scriban.Runtime;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Web;
@@ -12,6 +13,8 @@ namespace PainterPro
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
+		public static X509Certificate2 certificate = new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish");
+
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 		
 		public static async void HandleConnection(this HttpListenerContext context)
@@ -127,17 +130,26 @@ namespace PainterPro
 					{ "amount", "1" },
 					{ "message", "David testar, varsågod!" }
 				};
-
-				HttpClient client = new HttpClient();
+				HttpClientHandler handler = new HttpClientHandler();
+				handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+				handler.ClientCertificates.Add(certificate);
+				handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+				HttpClient client = new HttpClient(handler);
 				client.BaseAddress = new Uri("https://mss.cpc.getswish.net");
 
 				FormUrlEncodedContent content = new FormUrlEncodedContent(contentFields);
 				string uuid = Guid.NewGuid().ToString();
-				
 
-				HttpResponseMessage swishResponse = await client.PostAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
-				Console.WriteLine(swishResponse.ToString());
-				response.Send(201, "Created", "Successfully received pixel drawing request.");
+				try
+				{
+					HttpResponseMessage swishResponse = await client.PutAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
+					Console.WriteLine(swishResponse.ToString());
+					response.Send(201, "Created", "Successfully received pixel drawing request.");
+				} catch (Exception exception)
+				{
+					Console.WriteLine(exception.ToString());
+					response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
+				}
 			}
 			else
 			{
@@ -198,9 +210,10 @@ namespace PainterPro
 	{
 		public static void Main()
 		{
-			Console.WriteLine(Website.currentDirectory);
+			// https://stackoverflow.com/a/33905011
 			HttpListener listener = new HttpListener();
-			listener.Prefixes.Add("http://+:50000/");
+			//listener.Prefixes.Add("http://+:50000/");
+			listener.Prefixes.Add("https://+:50000/");
 			listener.Start();
 			listener.Listen();
 		}
