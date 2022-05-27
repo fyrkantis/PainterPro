@@ -13,12 +13,12 @@ namespace PainterPro
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
-		/*public static X509Certificate2Collection certificates = new X509Certificate2Collection()
+		public static X509Certificate2Collection certificates = new X509Certificate2Collection()
 		{
 			//new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
 			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
 			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
-		};*/
+		};
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 		
@@ -128,6 +128,8 @@ namespace PainterPro
 			DrawRequest drawRequest = new DrawRequest(fields);
 			if (drawRequest.pixels.Count >= 1)
 			{
+				string uuid = Guid.NewGuid().ToString().Replace("-", "");
+
 				// Creates a JSON response with all values in appsettings.json, as well as some new ones.
 				Dictionary<string, string> contentFields = new Dictionary<string, string>(appsettings)
 				{
@@ -136,56 +138,41 @@ namespace PainterPro
 					{ "message", "David testar, varsågod!" }
 				};
 
-				string uuid = Guid.NewGuid().ToString().Replace("-", "");
-				Console.WriteLine(uuid);
-
 				// https://github.com/RickardPettersson/swish-api-csharp/issues/3
 				// https://stackoverflow.com/a/61681840
 				HttpClientHandler handler = new HttpClientHandler();
 				
-				/*foreach(X509Certificate2 certificate in certificates)
+				foreach(X509Certificate2 certificate in certificates)
 				{
 					handler.ClientCertificates.Add(certificate);
-				}*/
-				//handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-				//handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
-
-				/*using (X509Store store = new X509Store(StoreName.CertificateAuthority, StoreLocation.LocalMachine))
-				{
-					store.Open(OpenFlags.ReadWrite);
-
-					var certs = new X509Certificate2Collection();
-					certs.Import(@"Swish_Merchant_TestCertificate_1234679304.p12", "swish", X509KeyStorageFlags.DefaultKeySet);
-
-					foreach (X509Certificate2 cert in certs)
-					{
-						if (cert.HasPrivateKey)
-						{
-							handler.ClientCertificates.Add(cert);
-						}
-						else
-						{
-							store.Add(cert);
-						}
-					}
-				}*/
+				}
+				handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+				handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
 
 				HttpClient client = new HttpClient(handler);
 				client.BaseAddress = new Uri("https://mss.cpc.getswish.net");
-
-				FormUrlEncodedContent content = new FormUrlEncodedContent(contentFields);
+				Console.WriteLine(JsonSerializer.Serialize(contentFields).ToString());
+				StringContent content = new StringContent(JsonSerializer.Serialize(contentFields).ToString(), Encoding.UTF8, "application/json");
 
 				try
 				{
-					/*HttpListener swishListener = new HttpListener();
+					HttpListener swishListener = new HttpListener();
 					swishListener.Prefixes.Add("https://+:443/");
 					swishListener.Start();
 
-					Task<HttpListenerContext> swishConnection = swishListener.GetContextAsync();*/
+					Task<HttpListenerContext> swishConnection = swishListener.GetContextAsync();
 					Task<HttpResponseMessage> swishResponse = client.PutAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
+					HttpResponseMessage responseMessage = await swishResponse;
+					Console.WriteLine("Response: " + responseMessage.ToString());
+					if (responseMessage.StatusCode != HttpStatusCode.Created)
+					{
+						Console.WriteLine("Error: " + await responseMessage.Content.ReadAsStringAsync());
+						swishListener.Close();
+						response.Send(502, "Bad Gateway", "Received an error response from Swish servers.");
+						return;
+					}
 
-					Console.WriteLine((await swishResponse).ToString());
-					//Console.WriteLine((await swishConnection).ToString());
+					Console.WriteLine("Connection: " + (await swishConnection).ToString());
 					response.Send(201, "Created", "Successfully received pixel drawing request.");
 				}
 				catch (Exception exception)
