@@ -13,12 +13,12 @@ namespace PainterPro
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
-		public static X509Certificate2Collection certificates = new X509Certificate2Collection()
+		/*public static X509Certificate2Collection certificates = new X509Certificate2Collection()
 		{
-			//new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
-			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
-			new X509Certificate2(currentDirectory + "\\Certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
-		};
+			//new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
+			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
+			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
+		};*/
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 		
@@ -31,8 +31,10 @@ namespace PainterPro
 
 			if (request.HttpMethod.ToLower() == "post")
 			{
-				await HandlePostAsync(request, response);
-				return;
+				if (await HandlePostAsync(request, response))
+				{
+					return;
+				}
 			}
 
 			if (request.Url == null)
@@ -45,11 +47,14 @@ namespace PainterPro
 				response.SendRedirect("/", 308, "Permanent Redirect");
 				return;
 			}
-			string path = Path.Combine(currentDirectory, "Website\\", request.Url.LocalPath.Replace('/', '\\').TrimStart('\\'));
+			
+			string path;
 			if (request.Url.LocalPath == "/")
 			{
-				path = Path.Combine(currentDirectory, "Website\\index.html");
-				
+				path = Path.Combine(currentDirectory, "website\\index.html");
+			} else
+			{
+				path = Path.Combine(currentDirectory, "website\\", request.Url.LocalPath.Replace('/', '\\').TrimStart('\\'));
 			}
 
 			if (!File.Exists(path))
@@ -76,7 +81,6 @@ namespace PainterPro
 				catch (IOException)
 				{
 					response.Send(503, "Service Unavailable", "The server encountered a temporary error when reading '" + request.RawUrl + "'.");
-					
 					return;
 				}
 			}
@@ -100,7 +104,7 @@ namespace PainterPro
 			Console.WriteLine(" Done!");
 		}
 
-		public static async Task HandlePostAsync(HttpListenerRequest request, HttpListenerResponse response)
+		public static async Task<bool> HandlePostAsync(HttpListenerRequest request, HttpListenerResponse response)
 		{
 			Console.WriteLine(" Reading post:");
 			string text;
@@ -140,7 +144,7 @@ namespace PainterPro
 
 				// https://github.com/RickardPettersson/swish-api-csharp/issues/3
 				// https://stackoverflow.com/a/61681840
-				HttpClientHandler handler = new HttpClientHandler();
+				/*HttpClientHandler handler = new HttpClientHandler();
 				
 				foreach(X509Certificate2 certificate in certificates)
 				{
@@ -179,12 +183,14 @@ namespace PainterPro
 				{
 					Console.WriteLine(exception.ToString());
 					response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
-				}
+				}*/
 			}
 			else
 			{
 				response.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
+				return true;
 			}
+			return false;
 		}
 
 		public static void Send(this HttpListenerResponse response, int code, string message, string? body = "")
@@ -222,7 +228,7 @@ namespace PainterPro
 		{
 			public string GetPath(TemplateContext context, SourceSpan callerSpan, string templateName) // TODO: Adapt for relative paths.
 			{
-				return Path.Combine(currentDirectory, "Website\\", templateName.Replace('/', '\\').TrimStart('\\'));
+				return Path.Combine(currentDirectory, "website\\", templateName.Replace('/', '\\').TrimStart('\\'));
 			}
 
 			public string Load(TemplateContext context, SourceSpan callerSpan, string templatePath)
