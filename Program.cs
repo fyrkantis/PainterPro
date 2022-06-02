@@ -13,15 +13,15 @@ namespace PainterPro
 	{
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
-		/*public static X509Certificate2Collection certificates = new X509Certificate2Collection()
+		public static X509Certificate2Collection certificates = new X509Certificate2Collection()
 		{
 			//new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
 			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
 			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
-		};*/
+		};
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
-		
+
 		public static async void HandleConnection(this HttpListenerContext context)
 		{
 			HttpListenerRequest request = context.Request;
@@ -47,7 +47,7 @@ namespace PainterPro
 				response.SendRedirect("/", 308, "Permanent Redirect");
 				return;
 			}
-			
+
 			string path;
 			if (request.Url.LocalPath == "/")
 			{
@@ -62,7 +62,7 @@ namespace PainterPro
 				response.Send(404, "Not Found", "The requested file '" + request.RawUrl + "' could not be found.");
 				return;
 			}
-			
+
 			response.ContentType = MimeTypes.GetMimeType(path);
 			response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(path) + "\"");
 			Console.Write(response.ContentType);
@@ -99,7 +99,7 @@ namespace PainterPro
 				response.ContentLength64 = data.Length;
 				output.Write(data);
 			}
-			
+
 			response.Close();
 			Console.WriteLine(" Done!");
 		}
@@ -125,7 +125,7 @@ namespace PainterPro
 					string value = HttpUtility.UrlDecode(pair[1]);
 					if (!fields.ContainsKey(key))
 					{
-							fields.Add(key, value);
+						fields.Add(key, value);
 					}
 				}
 			}
@@ -138,13 +138,13 @@ namespace PainterPro
 				Dictionary<string, string> contentFields = new Dictionary<string, string>(appsettings)
 				{
 					{ "currency", "SEK" },
-					{ "amount", "1" },
-					{ "message", "David testar, varsågod!" }
+					{ "amount", "1" },/*
+					{ "message", "David testar, varsågod!" }*/
 				};
 
 				// https://github.com/RickardPettersson/swish-api-csharp/issues/3
 				// https://stackoverflow.com/a/61681840
-				/*HttpClientHandler handler = new HttpClientHandler();
+				HttpClientHandler handler = new HttpClientHandler();
 				
 				foreach(X509Certificate2 certificate in certificates)
 				{
@@ -167,13 +167,29 @@ namespace PainterPro
 					Task<HttpListenerContext> swishConnection = swishListener.GetContextAsync();
 					Task<HttpResponseMessage> swishResponse = client.PutAsync("/swish-cpcapi/api/v2/paymentrequests/" + uuid, content);
 					HttpResponseMessage responseMessage = await swishResponse;
+					swishListener.Close();
 					Console.WriteLine("Response: " + responseMessage.ToString());
-					if (responseMessage.StatusCode != HttpStatusCode.Created)
+					if (!responseMessage.IsSuccessStatusCode)
 					{
-						Console.WriteLine("Error: " + await responseMessage.Content.ReadAsStringAsync());
-						swishListener.Close();
-						response.Send(502, "Bad Gateway", "Received an error response from Swish servers.");
-						return;
+						string responseString = await responseMessage.Content.ReadAsStringAsync();
+						Console.WriteLine("Error: " + responseString);
+						Dictionary<string, string>[]? responseJson = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
+						string responseHtml = "";
+						if (responseJson != null)
+						{
+							foreach(Dictionary<string, string> error in responseJson)
+							{
+								responseHtml += "<fieldset>";
+								foreach(KeyValuePair<string, string> row in error)
+								{
+									responseHtml += "<p><b>" + row.Key + ":</b> " + row.Value + "</p>";
+								}
+								responseHtml += "</fieldset>";
+							}
+						}
+
+						response.Send(502, "Bad Gateway", "Received a error response from Swish servers.</p>" + responseHtml + "<p><b>Swish error code:</b> " + (int)responseMessage.StatusCode + " " + responseMessage.StatusCode.ToString());
+						return true;
 					}
 
 					Console.WriteLine("Connection: " + (await swishConnection).ToString());
@@ -183,7 +199,8 @@ namespace PainterPro
 				{
 					Console.WriteLine(exception.ToString());
 					response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
-				}*/
+					return true;
+				}
 			}
 			else
 			{
