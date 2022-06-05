@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+{{include "/templates/meta.html"}}
+
+	<title>Dave's fantastic website</title>
+
+	<link rel="stylesheet" href="/style.css">
+	<link rel="stylesheet" href="/layout.css">
+
+	<script src="/script.js" type="module"></script>
+</head>
+<body>
+	<main>
+		<article>
+			<h1>
+				{{if message}}
+					{{if code}}
+						{{code}}: 
+					{{end}}
+					{{message}}
+				{{else}}
+					{{if code}}
+						{{code}}
+					{{else}}
+						Unknown
+					{{end}}
+					Error
+				{{end}}
+			</h1>
+			<hr>
+			{{if body}}
+				<p>{{body}}</p>
+			{{end}}
+			<a href="/">Return to home page</a>
+		</article>
+	</main>
+</body>
+</html>
