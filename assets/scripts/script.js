@@ -1,6 +1,6 @@
 ﻿// Beware: 500+ lines of jank below.
 
-import { colors, getCanvasPos, getEventCanvasPos } from "/paintMethods.js";
+import { colors, getCanvasPos, getEventCanvasPos } from "/scripts/paintMethods.js";
 
 const canvas = document.getElementById("paintingCanvas");
 var ctx = canvas.getContext("2d"); // const prevents colored pixels from being removed.

@@ -44,9 +44,9 @@ namespace PainterPro
 		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
 		public static X509Certificate2Collection certificates = new X509Certificate2Collection()
 		{
-			//new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
-			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
-			new X509Certificate2(currentDirectory + "\\certificates\\Swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
+			//new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.key", "swish"),
+			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
+			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
 		};
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
@@ -70,11 +70,6 @@ namespace PainterPro
 			if (request.Url == null)
 			{
 				response.Send(400, "Bad Request", "No requested URL was specified.");
-				return;
-			}
-			if (request.Url.LocalPath == "/index.html")
-			{
-				response.SendRedirect("/", 308, "Permanent Redirect");
 				return;
 			}
 
@@ -161,12 +156,16 @@ namespace PainterPro
 			{
 				Console.ForegroundColor = ConsoleColor.Blue;
 				Console.Write(" Client response:");
-				response.Send(202, "Accepted", "Awaiting response from Swish servers.");
+				response.SendHtmlFile("pages\\payment.html", new Dictionary<string, string>()
+				{ 
+					{ "test", "Woooooooo" } 
+				});
+				//response.Send(202, "Accepted", "Awaiting response from Swish servers.");
 				return;
 			}
 					
 			string responseString = await swishResponse.Content.ReadAsStringAsync();
-			Console.WriteLine("Error: " + responseString);
+			
 			Dictionary<string, string>[]? responseJson = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
 			string responseHtml = "";
 			if (responseJson != null)
@@ -192,59 +191,81 @@ namespace PainterPro
 			}*/
 		}
 
-		public static string GetFullPath(string localPath)
-		{
-			if (localPath == "/")
+		public static void SendFile(this HttpListenerResponse response, string urlPath) { // TODO: Add more broad serach for missing files.
+			// "/blah.html" -> "blah", "/index" -> "/", "/blah/index.html" -> "/blah"
+			string shortPath = urlPath;
+			while (true)
 			{
-				return Path.Combine(currentDirectory, "website\\index.html");
+				if (shortPath.EndsWith(".html") || shortPath.EndsWith("index"))
+				{
+					shortPath = shortPath.Remove(shortPath.Length - 5);
+				}
+				else
+				{
+					break;
+				}
 			}
-			else
+			string convertedPath = shortPath.Replace('/', '\\').TrimStart('\\');
+
+			// Brute force checks how the url could be interpreted.
+			string? relativePath = null;
+			foreach (string pathAlternative in new string[] { "assets\\" + convertedPath, "pages\\" + convertedPath + ".html", "pages\\" + convertedPath + "index.html" })
 			{
-				return Path.Combine(currentDirectory, "website\\", localPath.Replace('/', '\\').TrimStart('\\'));
+				if (File.Exists(Path.Combine(currentDirectory, pathAlternative)))
+				{
+					relativePath = pathAlternative;
+					break;
+				}
 			}
-		}
 
-		public static void SendFile(this HttpListenerResponse response, string localPath) {
-			string fullPath = GetFullPath(localPath);
-
-			if (!File.Exists(fullPath))
+			if (relativePath == null) // If none of the possibilities work, it means the file can't be found.
 			{
-				response.Send(404, "Not Found", "The requested file '" + localPath + "' could not be found.");
+				response.Send(404, "Not Found", "The requested file \"" + shortPath + "\" could not be found.");
 				return;
 			}
 
-			response.ContentType = MimeTypes.GetMimeType(fullPath);
-			response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(fullPath) + "\"");
-			
-			if (!response.ContentType.EndsWith("html"))
+			if (shortPath != urlPath) // For when the url format is wrong.
 			{
-				response.ContentLength64 = new FileInfo(fullPath).Length;
+				response.SendRedirect(shortPath, 301, "Moved Permanently");
+				return;
+			}
 
-				try
-				{
-					using (Stream fileStream = File.OpenRead(fullPath))
-					{
-						fileStream.CopyTo(response.OutputStream);
-					}
-				}
-				catch (IOException)
-				{
-					response.Send(503, "Service Unavailable", "The server encountered a temporary error when reading '" + localPath + "'.");
-					return;
-				}
-				response.Close();
-			}
-			else
+			string fullPath = Path.Combine(currentDirectory, relativePath);
+			string mimeType = MimeTypes.GetMimeType(fullPath);
+
+			if (mimeType == "text/html") // Loads html files as templates.
 			{
-				SendHtml(response, localPath);
+				response.SendHtmlFile(relativePath);
+				Console.ForegroundColor = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
+				Console.Write(" 200 OK");
+				return;
 			}
-			Console.ForegroundColor = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
+
+			// Sends regular files.
+			response.ContentType = mimeType;
+			response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(fullPath) + "\"");
+			response.ContentLength64 = new FileInfo(fullPath).Length;
+			try
+			{
+				using (Stream fileStream = File.OpenRead(fullPath))
+				{
+					fileStream.CopyTo(response.OutputStream);
+				}
+			}
+			catch (IOException)
+			{
+				response.Send(503, "Service Unavailable", "The server encountered a temporary error when reading \"" + relativePath + "\".");
+				return;
+			}
+			response.Close();
+			Console.ForegroundColor = ConsoleColor.Green;
 			Console.Write(" 200 OK");
+
 		}
 
-		public static void SendHtml(this HttpListenerResponse response, string localPath, Dictionary<string, string>? parameters = null)
+		public static void SendHtmlFile(this HttpListenerResponse response, string relativePath, Dictionary<string, string>? parameters = null)
 		{
-			string fullPath = GetFullPath(localPath);
+			string fullPath = Path.Combine(currentDirectory, relativePath);
 
 			ScriptObject script = new ScriptObject(); // Used for sending arguments to html template.
 			if (parameters != null)
@@ -261,6 +282,8 @@ namespace PainterPro
 			Template template = Template.Parse(File.ReadAllText(fullPath, Encoding.UTF8));
 			byte[] data = Encoding.UTF8.GetBytes(template.Render(templateContext));
 
+			response.ContentType = "text/html";
+			response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(fullPath) + "\"");
 			response.ContentLength64 = data.Length;
 			response.OutputStream.Write(data);
 			response.Close();
@@ -293,14 +316,14 @@ namespace PainterPro
 			}
 			try
 			{
-				response.SendHtml("/error.html", parameters);
+				response.SendHtmlFile("pages/error.html", parameters);
 			}
 			catch (Exception exception)
 			{
-				Console.WriteLine(" Exception during html generation:");
+				Console.WriteLine("\r\nException during html generation:");
 				Console.ForegroundColor = ConsoleColor.White;
 				Console.Write(exception);
-				response.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p><h2>An additional Internal Server Error occurred</h2><p>" + exception + "</p></body></html>");
+				response.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p><h2>An additional Internal Server Error occurred</h2><p style=\"white-space: pre-wrap;\">" + exception + "</p></body></html>");
 			}
 		}
 
@@ -319,6 +342,8 @@ namespace PainterPro
 
 		public static void SendRedirect(this HttpListenerResponse response, string location, int code, string message = "")
 		{
+			Console.ForegroundColor = ConsoleColor.Green;
+			MyConsole.WriteMany(code, message, "->", location);
 			response.StatusCode = code;
 			response.StatusDescription = message;
 			response.RedirectLocation = location;
@@ -329,7 +354,7 @@ namespace PainterPro
 		{
 			public string GetPath(TemplateContext context, SourceSpan callerSpan, string templateName) // TODO: Adapt for relative paths.
 			{
-				return Path.Combine(currentDirectory, "website\\", templateName.Replace('/', '\\').TrimStart('\\'));
+				return Path.Combine(currentDirectory, templateName.Replace('/', '\\').TrimStart('\\'));
 			}
 
 			public string Load(TemplateContext context, SourceSpan callerSpan, string templatePath)

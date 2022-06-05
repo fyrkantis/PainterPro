@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="website\certificates\**" />
-    <EmbeddedResource Remove="website\certificates\**" />
-    <None Remove="website\certificates\**" />
+    <Compile Remove="assets\certificates\**" />
+    <EmbeddedResource Remove="assets\certificates\**" />
+    <None Remove="assets\certificates\**" />
   </ItemGroup>
 
   <ItemGroup>
