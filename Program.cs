@@ -14,7 +14,7 @@ namespace PainterPro
 		public static void WriteTimestamp()
 		{
 			Console.ForegroundColor = ConsoleColor.White;
-			Console.Write("\r\n" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.ff"));
+			Console.Write("\r\n" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
 			Console.ForegroundColor = ConsoleColor.Blue;
 		}
 
@@ -48,6 +48,9 @@ namespace PainterPro
 			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
 			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
 		};
+
+		public static string swishDomain = "https://mss.cpc.getswish.net";
+		public static string swishPath = "/swish-cpcapi/api/v2/paymentrequests/";
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 
@@ -106,8 +109,7 @@ namespace PainterPro
 				response.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
 				return;
 			}
-			string swishDomain = "https://mss.cpc.getswish.net";
-			string swishPath = "/swish-cpcapi/api/v2/paymentrequests/";
+			
 			string swishUuid = Guid.NewGuid().ToString().Replace("-", "").ToUpper(); // Generates a UUID 32 characters, containing a mix of digits and capital A-F letters.
 
 			// Creates a JSON response with all values in appsettings.json, as well as some new ones.
@@ -152,6 +154,10 @@ namespace PainterPro
 				Console.ForegroundColor = ConsoleColor.Red;
 			}
 			MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
+			if (swishResponse.Content != null)
+			{
+				MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
+			}
 			if (swishResponse.IsSuccessStatusCode)
 			{
 				Console.ForegroundColor = ConsoleColor.Blue;
@@ -160,6 +166,9 @@ namespace PainterPro
 				{ 
 					{ "test", "Woooooooo" } 
 				});
+
+				await Task.Delay(2500).ContinueWith(t => SwishResponse(swishUuid));
+				await Task.Delay(5000).ContinueWith(t => SwishResponse(swishUuid));
 				//response.Send(202, "Accepted", "Awaiting response from Swish servers.");
 				return;
 			}
@@ -189,6 +198,41 @@ namespace PainterPro
 				Console.WriteLine(exception.ToString());
 				response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
 			}*/
+		}
+
+		public static async void SwishResponse(string swishUuid)
+		{
+			// https://github.com/RickardPettersson/swish-api-csharp/issues/3
+			// https://stackoverflow.com/a/61681840
+			HttpClientHandler handler = new HttpClientHandler();
+
+			foreach (X509Certificate2 certificate in certificates)
+			{
+				handler.ClientCertificates.Add(certificate);
+			}
+			handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+			handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+
+			HttpClient client = new HttpClient(handler);
+			client.BaseAddress = new Uri(swishDomain);
+			Task<HttpResponseMessage> swishConnection = client.GetAsync("/swish-cpcapi/api/v1/paymentrequests/" + swishUuid);
+			HttpResponseMessage swishResponse = await swishConnection;
+
+			MyConsole.WriteTimestamp();
+			Console.Write(" Swish response:");
+			if (swishResponse.IsSuccessStatusCode)
+			{
+				Console.ForegroundColor = ConsoleColor.Green;
+			}
+			else
+			{
+				Console.ForegroundColor = ConsoleColor.Red;
+			}
+			MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
+			if (swishResponse.Content != null)
+			{
+				MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
+			}
 		}
 
 		public static void SendFile(this HttpListenerResponse response, string urlPath) { // TODO: Add more broad serach for missing files.
@@ -236,8 +280,6 @@ namespace PainterPro
 			if (mimeType == "text/html") // Loads html files as templates.
 			{
 				response.SendHtmlFile(relativePath);
-				Console.ForegroundColor = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
-				Console.Write(" 200 OK");
 				return;
 			}
 
@@ -288,7 +330,8 @@ namespace PainterPro
 			response.OutputStream.Write(data);
 			response.Close();
 
-			Console.ForegroundColor = ConsoleColor.Green;
+			Console.ForegroundColor = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
+			Console.Write(" 200 OK");
 		}
 
 		public static void Send(this HttpListenerResponse response, int code, string message, string? body = "")
