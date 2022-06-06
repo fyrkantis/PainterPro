@@ -1,6 +1,7 @@
 ﻿using Scriban;
 using Scriban.Parsing;
 using Scriban.Runtime;
+using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -11,19 +12,48 @@ namespace PainterPro
 {
 	public static class MyConsole
 	{
+		public static ConsoleColor color
+		{
+			set
+			{
+#if DEBUG
+				Console.ForegroundColor = value;
+#endif
+			}
+		}
+
+		public static void SetStatusColor(bool condition)
+		{
+			if (condition)
+			{
+				color = ConsoleColor.Green;
+			}
+			else
+			{
+				color = ConsoleColor.Red;
+			}
+		}
+
+		public static void Write(object value)
+		{
+#if DEBUG
+			Console.Write(value);
+#endif
+		}
+
 		public static void WriteTimestamp()
 		{
-			Console.ForegroundColor = ConsoleColor.White;
-			Console.Write("\r\n" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-			Console.ForegroundColor = ConsoleColor.Blue;
+			color = ConsoleColor.White;
+			Write("\r\n" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+			color = ConsoleColor.Blue;
 		}
 
 		public static void WriteData(string name, string data)
 		{
-			Console.ForegroundColor = ConsoleColor.White;
-			Console.Write("\r\n" + name + ": ");
-			Console.ForegroundColor = ConsoleColor.Magenta;
-			Console.Write(data);
+			color = ConsoleColor.White;
+			Write("\r\n" + name + ": ");
+			color = ConsoleColor.Magenta;
+			Write(data);
 		}
 
 		public static void WriteMany(params object?[] elements)
@@ -32,7 +62,7 @@ namespace PainterPro
 			{
 				if (element != null)
 				{
-					Console.Write(" " + element.ToString());
+					Write(" " + element.ToString());
 				}
 			}
 		}
@@ -58,8 +88,8 @@ namespace PainterPro
 		{
 			HttpListenerRequest request = context.Request;
 			MyConsole.WriteTimestamp(); // TODO: Log sender IP.
-			Console.Write(" Connection:");
-			Console.ForegroundColor = ConsoleColor.DarkYellow;
+			MyConsole.Write(" Connection:");
+			MyConsole.color = ConsoleColor.DarkYellow;
 			MyConsole.WriteMany(request.HttpMethod, request.Url);
 			HttpListenerResponse response = context.Response;
 			response.ContentEncoding = Encoding.UTF8;
@@ -144,15 +174,8 @@ namespace PainterPro
 			HttpResponseMessage swishResponse = await swishConnection;
 
 			MyConsole.WriteTimestamp();
-			Console.Write(" Swish response:");
-			if (swishResponse.IsSuccessStatusCode)
-			{
-				Console.ForegroundColor = ConsoleColor.Green;
-			}
-			else
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-			}
+			MyConsole.Write(" Swish response:");
+			MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
 			MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
 			if (swishResponse.Content != null)
 			{
@@ -160,8 +183,8 @@ namespace PainterPro
 			}
 			if (swishResponse.IsSuccessStatusCode)
 			{
-				Console.ForegroundColor = ConsoleColor.Blue;
-				Console.Write(" Client response:");
+				MyConsole.color = ConsoleColor.Blue;
+				MyConsole.Write(" Client response:");
 				response.SendHtmlFile("pages\\payment.html", new Dictionary<string, string>()
 				{ 
 					{ "test", "Woooooooo" } 
@@ -195,7 +218,7 @@ namespace PainterPro
 			/*}
 			catch (Exception exception)
 			{
-				Console.WriteLine(exception.ToString());
+				MyConsole.WriteLine(exception.ToString());
 				response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
 			}*/
 		}
@@ -219,15 +242,8 @@ namespace PainterPro
 			HttpResponseMessage swishResponse = await swishConnection;
 
 			MyConsole.WriteTimestamp();
-			Console.Write(" Swish response:");
-			if (swishResponse.IsSuccessStatusCode)
-			{
-				Console.ForegroundColor = ConsoleColor.Green;
-			}
-			else
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-			}
+			MyConsole.Write(" Swish response:");
+			MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
 			MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
 			if (swishResponse.Content != null)
 			{
@@ -300,8 +316,8 @@ namespace PainterPro
 				return;
 			}
 			response.Close();
-			Console.ForegroundColor = ConsoleColor.Green;
-			Console.Write(" 200 OK");
+			MyConsole.color = ConsoleColor.Green;
+			MyConsole.Write(" 200 OK");
 
 		}
 
@@ -330,20 +346,13 @@ namespace PainterPro
 			response.OutputStream.Write(data);
 			response.Close();
 
-			Console.ForegroundColor = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
-			Console.Write(" 200 OK");
+			MyConsole.color = ConsoleColor.Green; // TODO: Add alternative message if exception occurs in SendHtml.
+			MyConsole.Write(" 200 OK");
 		}
 
 		public static void Send(this HttpListenerResponse response, int code, string message, string? body = "")
 		{
-			if (code >= 100 && code < 400)
-			{
-				Console.ForegroundColor = ConsoleColor.Green;
-			}
-			else
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-			}
+			MyConsole.SetStatusColor(code >= 100 && code < 400);
 			MyConsole.WriteMany(code, message);
 
 			response.StatusCode = code;
@@ -363,9 +372,9 @@ namespace PainterPro
 			}
 			catch (Exception exception)
 			{
-				Console.WriteLine("\r\nException during html generation:");
-				Console.ForegroundColor = ConsoleColor.White;
-				Console.Write(exception);
+				MyConsole.Write("\r\nException during html generation:\r\n");
+				MyConsole.color = ConsoleColor.White;
+				MyConsole.Write(exception);
 				response.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p><h2>An additional Internal Server Error occurred</h2><p style=\"white-space: pre-wrap;\">" + exception + "</p></body></html>");
 			}
 		}
@@ -385,7 +394,7 @@ namespace PainterPro
 
 		public static void SendRedirect(this HttpListenerResponse response, string location, int code, string message = "")
 		{
-			Console.ForegroundColor = ConsoleColor.Green;
+			MyConsole.color = ConsoleColor.Green;
 			MyConsole.WriteMany(code, message, "->", location);
 			response.StatusCode = code;
 			response.StatusDescription = message;
@@ -427,12 +436,25 @@ namespace PainterPro
 		{
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.Write("Server running...");
+
+#if DEBUG
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.Write(" (logs enabled)");
+#else
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine(" (logs disabled)");
+			Console.ForegroundColor = ConsoleColor.DarkYellow;
+			Console.Write("Run in debug environment for logging.");
+#endif
 			while (true)
 			{
 				
 				HttpListenerContext context = listener.GetContext();
-				//Task.Run(() => context.HandleConnection());
-				context.HandleConnection();
+#if DEBUG
+				context.HandleConnection(); // Handles connection synchronously.
+#else
+				Task.Run(() => context.HandleConnection()); // Handles connection asynchronously.
+#endif
 			}
 		}
 	}
