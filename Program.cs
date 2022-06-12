@@ -36,6 +36,7 @@ namespace PainterPro
 
 		public static void Write(object value)
 		{
+			Debug.Write(value);
 #if DEBUG
 			Console.Write(value);
 #endif
@@ -81,6 +82,7 @@ namespace PainterPro
 
 		public static string swishDomain = "https://mss.cpc.getswish.net";
 		public static string swishPath = "/swish-cpcapi/api/v2/paymentrequests/";
+		public static string swishIp = "213.132.115.94:443";
 
 		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
 
@@ -94,133 +96,148 @@ namespace PainterPro
 			HttpListenerResponse response = context.Response;
 			response.ContentEncoding = Encoding.UTF8;
 
-			if (request.HttpMethod.ToLower() == "post")
-			{
-				await HandlePostAsync(request, response);
-				return;
-			}
-
 			if (request.Url == null)
 			{
 				response.Send(400, "Bad Request", "No requested URL was specified.");
 				return;
 			}
 
+			if (request.HttpMethod.ToLower() == "post")
+			{
+				await response.HandlePostAsync(request);
+				return;
+			}
+
 			SendFile(response, request.Url.LocalPath);
 		}
 
-		public static async Task HandlePostAsync(HttpListenerRequest request, HttpListenerResponse response)
+		public static async Task HandlePostAsync(this HttpListenerResponse response, HttpListenerRequest request) // TODO: Move to central url check.
+		{
+			Dictionary<string, object>? fields = null;
+			if (request.ContentLength64 > 0)
+			{
+				fields = request.ReadPost(response);
+				if (fields == null)
+				{
+					return;
+				}
+				else if (fields.Count <= 0)
+				{
+					fields = null;
+				}
+			}
+			switch (request.RawUrl.Trim('/'))
+			{
+				case "payment":
+					DrawRequest drawRequest = new DrawRequest(fields);
+					if (drawRequest.pixels.Count <= 0)
+					{
+						response.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
+						return;
+					}
+					HttpResponseMessage? swishResponse = await drawRequest.CreatePaymentRequest();
+					MyConsole.WriteTimestamp();
+					if (swishResponse == null)
+					{
+						response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
+						return;
+					}
+					MyConsole.Write(" Swish response:");
+					MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
+					MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
+					if (swishResponse.Content != null)
+					{
+						MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
+					}
+					if (!swishResponse.IsSuccessStatusCode)
+					{
+						string responseString = await swishResponse.Content.ReadAsStringAsync();
+
+						Dictionary<string, string>[]? responseJson = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
+						string responseHtml = "";
+						if (responseJson != null)
+						{
+							foreach (Dictionary<string, string> error in responseJson)
+							{
+								responseHtml += "<fieldset>";
+								foreach (KeyValuePair<string, string> row in error)
+								{
+									responseHtml += "<p><b>" + row.Key + ":</b> " + row.Value + "</p>";
+								}
+								responseHtml += "</fieldset>";
+							}
+						}
+
+						// TODO: Replace jank solution.
+						response.Send(502, "Bad Gateway", "Received a error response from Swish servers.</p>" + responseHtml + "<p><b>Swish error code:</b> " + (int)swishResponse.StatusCode + " " + swishResponse.StatusCode.ToString());
+					}
+
+					MyConsole.color = ConsoleColor.Blue;
+					MyConsole.Write(" Client response:");
+					response.SendHtmlFile("pages\\payment.html", new Dictionary<string, string>()
+					{
+						{ "test", "Woooooooo" },
+						{ "uuid", drawRequest.uuid }
+					});
+					break;
+				case "swish":
+					// TODO: IP filtering.
+					response.Send(204, "No Content", "Thank you, friendly swish servers.");
+					break;
+				default:
+					response.Send(418, "I'm a teapot", "And I can't be asked to brew coffee.");
+					break;
+			}
+		}
+
+		public static Dictionary<string, object>? ReadPost(this HttpListenerRequest request, HttpListenerResponse response)
 		{
 			string text;
 			using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
 			{
 				text = reader.ReadToEnd();
 			}
+
 			MyConsole.WriteData("	Received data", text);
-
-			Dictionary<string, string> fields = new Dictionary<string, string>();
-			string[] rawFields = text.Split('&');
-			foreach (string rawField in rawFields)
+			Dictionary<string, object>? fields = null;
+			switch (request.ContentType)
 			{
-				string[] pair = rawField.Split('=', 2);
-				if (pair.Length == 2)
-				{
-					string key = pair[0];
-					string value = HttpUtility.UrlDecode(pair[1]);
-					if (!fields.ContainsKey(key))
+				case "application/x-www-form-urlencoded":
+					fields = new Dictionary<string, object>();
+					string[] rawFields = text.Split('&');
+					foreach (string rawField in rawFields)
 					{
-						fields.Add(key, value);
+						string[] pair = rawField.Split('=', 2);
+						if (pair.Length == 2)
+						{
+							string key = pair[0];
+							string value = HttpUtility.UrlDecode(pair[1]);
+							if (!fields.ContainsKey(key))
+							{
+								fields.Add(key, value);
+							}
+						}
 					}
-				}
+					break;
+				case "application/json":
+					fields = JsonSerializer.Deserialize<Dictionary<string, object>>(text);
+					break;
+				case null:
+					response.Send(400, "Bad Request", "The server could not process the request because it was malformed, the header field \"ContentType\" is missing.");
+					return null;
+				default:
+					response.Send(415, "Unsupported Media Type", "The server currently only accepts content encoded with either \"application/x-www-form-urlencoded\" or \"application/json\".");
+					return null;
 			}
-			DrawRequest drawRequest = new DrawRequest(fields);
-			if (drawRequest.pixels.Count <= 0)
-			{
-				response.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
-				return;
+			if (fields == null) {
+				response.Send(500, "Internal Server Error", "Something went wrong when deserializing the POST contents.");
 			}
-			
-			string swishUuid = Guid.NewGuid().ToString().Replace("-", "").ToUpper(); // Generates a UUID 32 characters, containing a mix of digits and capital A-F letters.
+			return fields;
+		}
 
-			// Creates a JSON response with all values in appsettings.json, as well as some new ones.
-			Dictionary<string, string> contentFields = new Dictionary<string, string>(appsettings)
-			{
-				{ "currency", "SEK" },
-				{ "amount", "1" },
-				{ "message", "David testar!" }
-			};
+		public static void HandlePaintingPost(this HttpListenerResponse response, HttpListenerRequest request)
+		{
 
-			// https://github.com/RickardPettersson/swish-api-csharp/issues/3
-			// https://stackoverflow.com/a/61681840
-			HttpClientHandler handler = new HttpClientHandler();
-				
-			foreach(X509Certificate2 certificate in certificates)
-			{
-				handler.ClientCertificates.Add(certificate);
-			}
-			handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-			handler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
-
-			HttpClient client = new HttpClient(handler);
-			client.BaseAddress = new Uri(swishDomain);
-			string contentString = JsonSerializer.Serialize(contentFields).ToString();
-			StringContent content = new StringContent(contentString, Encoding.UTF8, "application/json");
-
-			MyConsole.WriteData("	Sent data", contentString + " PUT " + swishDomain + swishPath + swishUuid);
-
-			//try
-			//{
-			Task<HttpResponseMessage> swishConnection = client.PutAsync(swishPath + swishUuid, content);
-			HttpResponseMessage swishResponse = await swishConnection;
-
-			MyConsole.WriteTimestamp();
-			MyConsole.Write(" Swish response:");
-			MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
-			MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
-			if (swishResponse.Content != null)
-			{
-				MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
-			}
-			if (swishResponse.IsSuccessStatusCode)
-			{
-				MyConsole.color = ConsoleColor.Blue;
-				MyConsole.Write(" Client response:");
-				response.SendHtmlFile("pages\\payment.html", new Dictionary<string, string>()
-				{ 
-					{ "test", "Woooooooo" } 
-				});
-
-				await Task.Delay(2500).ContinueWith(t => SwishResponse(swishUuid));
-				await Task.Delay(5000).ContinueWith(t => SwishResponse(swishUuid));
-				//response.Send(202, "Accepted", "Awaiting response from Swish servers.");
-				return;
-			}
-					
-			string responseString = await swishResponse.Content.ReadAsStringAsync();
-			
-			Dictionary<string, string>[]? responseJson = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
-			string responseHtml = "";
-			if (responseJson != null)
-			{
-				foreach(Dictionary<string, string> error in responseJson)
-				{
-					responseHtml += "<fieldset>";
-					foreach(KeyValuePair<string, string> row in error)
-					{
-						responseHtml += "<p><b>" + row.Key + ":</b> " + row.Value + "</p>";
-					}
-					responseHtml += "</fieldset>";
-				}
-			}
-
-			// TODO: Test if this is correctly injected into HTML.
-			response.Send(502, "Bad Gateway", "Received a error response from Swish servers.</p>" + responseHtml + "<p><b>Swish error code:</b> " + (int)swishResponse.StatusCode + " " + swishResponse.StatusCode.ToString());
-			/*}
-			catch (Exception exception)
-			{
-				MyConsole.WriteLine(exception.ToString());
-				response.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
-			}*/
 		}
 
 		public static async void SwishResponse(string swishUuid)
@@ -426,6 +443,8 @@ namespace PainterPro
 		public static void Main()
 		{
 			// Certificate setup: https://stackoverflow.com/a/33905011
+			// Note to self: Certbot makes certificates, openssl combines certificate and key to .pfx file,
+			// wich is loaded in with Windows MMC, and then bound to app with netsh http add sslcert. Phew!
 			HttpListener listener = new HttpListener();
 			listener.Prefixes.Add("https://+:443/");
 			listener.Start();
@@ -446,6 +465,7 @@ namespace PainterPro
 			Console.ForegroundColor = ConsoleColor.DarkYellow;
 			Console.Write("Run in debug environment for logging.");
 #endif
+			Console.ForegroundColor = ConsoleColor.White;
 			while (true)
 			{
 				
