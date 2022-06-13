@@ -52,7 +52,19 @@ namespace PainterPro
 					{ "uuid", drawRequest.uuid }
 				});
 			}),
-			new Route("swish", new string[] { "POST"} , (context) =>
+			new Route("progress", new string[] { "POST" }, (context) =>
+			{
+				Dictionary<string, object>? fields = context.ReadPost();
+				if (fields == null)
+				{
+					fields = new Dictionary<string, object>()
+					{
+						{ "text", "Hello?" }
+					};
+				}
+				context.SendJson(fields);
+			}),
+			new Route("swish", new string[] { "POST"}, (context) =>
 			{
 				context.ReadPost();
 				// TODO: IP filtering.
@@ -66,6 +78,7 @@ namespace PainterPro
 			MyConsole.WriteMany(context.Request.RemoteEndPoint, "Connection:");
 			MyConsole.color = ConsoleColor.DarkYellow;
 			MyConsole.WriteMany(context.Request.HttpMethod, context.Request.Url);
+			context.Response.ContentEncoding = Encoding.UTF8;
 
 			if (context.Request.Url == null)
 			{
@@ -230,6 +243,7 @@ namespace PainterPro
 		public static void SendHtmlFile(this HttpListenerContext context, string relativePath, Dictionary<string, object>? parameters = null)
 		{
 			string absolutePath = Path.Combine(Util.currentDirectory, relativePath);
+			context.Response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(absolutePath) + "\"");
 
 			ScriptObject script = new ScriptObject(); // Used for sending arguments to html template.
 			if (parameters != null)
@@ -244,15 +258,15 @@ namespace PainterPro
 			templateContext.PushGlobal(script);
 
 			Template template = Template.Parse(File.ReadAllText(absolutePath, Encoding.UTF8));
-			byte[] data = Encoding.UTF8.GetBytes(template.Render(templateContext));
-
-			context.Response.ContentType = "text/html";
-			context.Response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(absolutePath) + "\"");
-			context.Response.ContentLength64 = data.Length;
-			context.Response.OutputStream.Write(data);
+			context.SendBody(template.Render(templateContext));
 
 			MyConsole.WriteHttpStatus(context); // TODO: Add alternative message if exception occurs.
 			context.Response.Close();
+		}
+
+		public static void SendJson(this HttpListenerContext context, Dictionary<string, object> fields)
+		{
+			context.SendBody(JsonSerializer.Serialize(fields), "application/json");
 		}
 
 		public static void Send(this HttpListenerContext context, int code, string message, string? body = null, Dictionary<string, string>[]? errors = null)
@@ -281,20 +295,21 @@ namespace PainterPro
 				MyConsole.Write("\r\nException during html generation:\r\n");
 				MyConsole.color = ConsoleColor.White;
 				MyConsole.Write(exception);
-				context.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p><h2>An additional Internal Server Error occurred</h2><p style=\"white-space: pre-wrap;\">" + exception + "</p></body></html>");
+				context.SendBody("<html><body><h1>" + code.ToString() + ": " + message + "</h1><hr><p>" + body + "</p><h2>An additional Internal Server Error occurred</h2><p style=\"white-space: pre-wrap;\">" + HttpUtility.HtmlEncode(exception) + "</p></body></html>");
 			}
 		}
 
-		public static void SendBody(this HttpListenerContext context, string body)
+		public static void SendBody(this HttpListenerContext context, string body, string type = "text/html")
 		{
-			context.SendBody(Encoding.UTF8.GetBytes(body));
+			context.SendBody(Encoding.UTF8.GetBytes(body), type);
 		}
-		public static void SendBody(this HttpListenerContext context, byte[] bytes)
+		public static void SendBody(this HttpListenerContext context, byte[] bytes, string type = "text/html")
 		{
 			context.Response.ContentLength64 = bytes.Length;
-			context.Response.ContentType = "text/html";
+			context.Response.ContentType = type;
 
 			context.Response.OutputStream.Write(bytes);
+			MyConsole.WriteHttpStatus(context);
 			context.Response.Close();
 		}
 
