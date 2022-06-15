@@ -10,18 +10,24 @@ namespace PainterPro
 {
 	public static class Website
 	{
-		public static Dictionary<int, DrawRequest> drawRequests = new Dictionary<int, DrawRequest>();
+		public static List<DrawRequest> drawRequests = new List<DrawRequest>();
 		public static Route[] routes =
 		{
 			new Route("payment", new string[] { "POST" }, async (context) =>
 			{
 				Dictionary<string, object>? fields = context.ReadPost();
+				if (fields == null)
+				{
+					return;
+				}
 				DrawRequest drawRequest = new DrawRequest(fields);
 				if (drawRequest.pixels.Count <= 0)
 				{
 					context.Send(422, "Unprocessable Entity", "The pixel drawing request is missing fields.");
 					return;
 				}
+				drawRequests.Add(drawRequest);
+				context.Response.SetCookie(new Cookie("DrawRequestUuid", drawRequest.uuid, "/qr/"));
 				HttpResponseMessage? swishResponse = await drawRequest.CreatePaymentRequest();
 				MyConsole.WriteTimestamp();
 				if (swishResponse == null)
@@ -36,38 +42,67 @@ namespace PainterPro
 				{
 					MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
 				}
+
 				if (!swishResponse.IsSuccessStatusCode)
 				{
 					string responseString = await swishResponse.Content.ReadAsStringAsync();
-
 					Dictionary<string, string>[]? errors = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
 					context.Send(502, "Bad Gateway", "Received a \"" + (int)swishResponse.StatusCode + ": " + swishResponse.StatusCode.ToString() + "\" error response from Swish servers.", errors);
 				}
 
 				MyConsole.color = ConsoleColor.Blue;
 				MyConsole.Write(" Client response:");
-				context.SendHtmlFile("pages\\payment.html", new Dictionary<string, object>()
-				{
-					{ "test", "Woooooooo" },
-					{ "uuid", drawRequest.uuid }
-				});
+				context.SendHtmlFile("pages\\payment.html");
 			}),
-			new Route("progress", new string[] { "POST" }, (context) =>
+			new Route("qr", new string[] { "GET" }, async (context) =>
+			{
+				// Sends regular files.
+				context.Response.ContentType = "image/png";
+				context.Response.AddHeader("Content-Disposition", "inline; filename = \"swishQrCode.png\"");
+
+				MyConsole.WriteData("Cookie", context.Request.Cookies["OtherCookie"]);
+				Cookie? cookie = context.Request.Cookies["DrawRequestUuid"];
+				if (cookie == null)
+				{
+					context.Send(400, "Bad Request", "The request is missing a \"DrawRequestUuid\" cookie.");
+					return;
+				}
+				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == cookie.Value);
+				if (drawRequest == null)
+				{
+					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + cookie.Value + "\"");
+					return;
+				}
+
+				using (Stream imageStream = await drawRequest.GetPaymentQrStream())
+				{
+					context.Response.ContentLength64 = imageStream.Length;
+					imageStream.CopyTo(context.Response.OutputStream);
+				}
+				MyConsole.WriteHttpStatus(context);
+				context.Response.Close();
+			}),
+			new Route("update", new string[] { "POST" }, (context) =>
 			{
 				Dictionary<string, object>? fields = context.ReadPost();
 				if (fields == null)
 				{
-					fields = new Dictionary<string, object>()
-					{
-						{ "text", "Hello?" }
-					};
+					return;
+				}
+				if (fields.Count <= 0)
+				{
+					fields.Add("text", "Hello?");
 				}
 				context.SendJson(fields);
 			}),
 			new Route("swish", new string[] { "POST"}, (context) =>
 			{
-				context.ReadPost();
 				// TODO: IP filtering.
+				Dictionary<string, object> fields = context.ReadPost();
+				if (fields == null)
+				{
+					return;
+				}
 				context.Send(204, "No Content", "Thank you, friendly swish servers.");
 			})
 		};
@@ -192,8 +227,16 @@ namespace PainterPro
 					}
 					break;
 				case "application/json":
-					fields = JsonSerializer.Deserialize<Dictionary<string, object>>(text);
-					break;
+					try
+					{
+						fields = JsonSerializer.Deserialize<Dictionary<string, object>>(text);
+						break;
+					}
+					catch (JsonException exception)
+					{
+						context.Send(422, "Unprocessable Entity", "An exception occured when deserializing the received json: " + exception.Message);
+						return null;
+					}
 				case null:
 					context.Send(400, "Bad Request", "The server could not process the request because it was malformed, the header field \"ContentType\" is missing.");
 					return null;
@@ -208,19 +251,12 @@ namespace PainterPro
 			return fields;
 		}
 
-		public static void SendFile(this HttpListenerContext context, string relativePath)
-		{ // TODO: Add more broad serach for missing files.
+		public static void SendFile(this HttpListenerContext context, string relativePath) // TODO: Add more broad serach for missing files.
+		{
 			string absolutePath = Path.Combine(Util.currentDirectory, relativePath);
-			string mimeType = MimeTypes.GetMimeType(absolutePath);
-
-			if (mimeType == "text/html") // Loads html files as templates.
-			{
-				context.SendHtmlFile(relativePath);
-				return;
-			}
 
 			// Sends regular files.
-			context.Response.ContentType = mimeType;
+			context.Response.ContentType = MimeTypes.GetMimeType(absolutePath);
 			context.Response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(absolutePath) + "\"");
 			context.Response.ContentLength64 = new FileInfo(absolutePath).Length;
 			try
@@ -240,7 +276,7 @@ namespace PainterPro
 			context.Response.Close();
 		}
 
-		public static void SendHtmlFile(this HttpListenerContext context, string relativePath, Dictionary<string, object>? parameters = null)
+		public static void SendHtmlFile(this HttpListenerContext context, string relativePath, Dictionary<string, object>? parameters = null) // TODO: Add error handling for scriban syntax errors.
 		{
 			string absolutePath = Path.Combine(Util.currentDirectory, relativePath);
 			context.Response.AddHeader("Content-Disposition", "inline; filename = \"" + Path.GetFileName(absolutePath) + "\"");
@@ -259,8 +295,6 @@ namespace PainterPro
 
 			Template template = Template.Parse(File.ReadAllText(absolutePath, Encoding.UTF8));
 			context.SendBody(template.Render(templateContext));
-
-			MyConsole.WriteHttpStatus(context); // TODO: Add alternative message if exception occurs.
 			context.Response.Close();
 		}
 

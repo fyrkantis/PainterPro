@@ -1,5 +1,5 @@
-﻿import { SendHttpPostRequest } from "/scripts/httpMethods.js";
+﻿import { SendHttpPostRequest, GetCookie } from "/scripts/httpMethods.js";
 
-console.log(await SendHttpPostRequest("/progress/", {
+console.log(await SendHttpPostRequest("/update/", {
 	text: "Hello World!"
 }));

@@ -1,17 +1,45 @@
 ﻿using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace PainterPro
 {
 	public static class Util
 	{
-		public static string swishDomain = "https://mss.cpc.getswish.net";
-		public static string swishPath = "/swish-cpcapi/api/v2/paymentrequests/";
-		public static string swishIp = "213.132.115.94:443";
+		public const string swishDomain = "https://mss.cpc.getswish.net";
+		public const string swishCreatePath = "/swish-cpcapi/api/v2/paymentrequests/";
+		public const string swishQrPath = "/qrg-swish/api/v1/commerce/";
+		public const string swishIp = "213.132.115.94:443";
 
 		public static string currentDirectory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
-		public static Dictionary<string, string> appsettings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
+		public static Dictionary<string, object> appsettings = JsonSerializer.Deserialize<Dictionary<string, object>>(File.OpenRead(currentDirectory + "\\appsettings.json"));
+
+		static X509Certificate2Collection certificates = new X509Certificate2Collection()
+		{
+			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.p12", "swish"),
+			new X509Certificate2(currentDirectory + "\\certificates\\swish\\Swish_Merchant_TestCertificate_1234679304.pem", "swish")
+		};
+		static HttpClientHandler swishCertificateHandler = new HttpClientHandler();
+
+		static Util()
+		{
+			// https://github.com/RickardPettersson/swish-api-csharp/issues/3
+			// https://stackoverflow.com/a/61681840
+			foreach (X509Certificate2 certificate in certificates)
+			{
+				swishCertificateHandler.ClientCertificates.Add(certificate);
+			}
+			swishCertificateHandler.ClientCertificateOptions = ClientCertificateOption.Manual;
+			swishCertificateHandler.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+		}
+
+		public static HttpClient GetSwishClient(string domain = swishDomain)
+		{
+			HttpClient client = new HttpClient(swishCertificateHandler);
+			client.BaseAddress = new Uri(domain);
+			return client;
+		}
 
 		public static string GrammaticalListing(IEnumerable<object> collection)
 		{
@@ -78,7 +106,7 @@ namespace PainterPro
 			color = ConsoleColor.Blue;
 		}
 
-		public static void WriteData(string name, string data)
+		public static void WriteData(string name, object data)
 		{
 			color = ConsoleColor.White;
 			WriteLine(name + ": ");
