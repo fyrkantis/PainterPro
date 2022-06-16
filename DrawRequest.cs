@@ -61,13 +61,13 @@ namespace PainterPro
 			}
 		}
 
-		public async Task<Stream> GetPaymentQrStream()
+		public async Task<HttpResponseMessage?> GetPaymentQr(int size)
 		{
 			Dictionary<string, object> contentFields = new Dictionary<string, object>()
 			{
 				{ "token", uuid },
 				{ "format", "png" },
-				{ "size", 300 }
+				{ "size", size }
 			};
 			string contentString = JsonSerializer.Serialize(contentFields).ToString();
 			StringContent content = new StringContent(contentString, Encoding.UTF8, "application/json");
@@ -78,8 +78,7 @@ namespace PainterPro
 			try
 			{
 				Task<HttpResponseMessage> swishConnection = client.PostAsync(Util.swishQrPath, content);
-				HttpResponseMessage response = await swishConnection;
-				return await response.Content.ReadAsStreamAsync();
+				return await swishConnection;
 			}
 			catch (Exception exception)
 			{

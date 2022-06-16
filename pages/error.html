@@ -22,14 +22,28 @@
 				<p>{{body}}</p>
 			{{end}}
 			{{if errors}}
-				<h2>Additional Errors</h2>
-				{{for error in errors}}
-					<fieldset>
-						<legend>Error {{for.index}}</legend>
-						{{for row in error}}
-							<p><b>{{row.key}}</b>: {{row.value}}</p>
-						{{end}}
-					</fieldset>
+				<p>{{errors | object.typeof}}</p>
+				{{if errors | object.typeof == array | object.typeof}}
+					<h2>Additional Errors</h2>
+					{{for error in errors}}
+						<fieldset>
+							<legend>Error {{for.index}}</legend>
+							{{if error | object.typeof == object | object.typeof}}
+								{{for row in error}}
+									<p><b>{{row.key}}:</b> {{row.value}}</p>
+								{{end}}
+							{{else}}
+								<p>{{error}}</p>
+							{{end}}
+						</fieldset>
+					{{end}}
+				{{else if errors | object.typeof == object | object.typeof}}
+					<h2>Additional Info</h2>
+					{{for row in errors}}
+						<p><b>{{row.key}}:</b> {{row.value}}</p>
+					{{end}}
+				{{else}}
+					<p><i>{{errors}}</i></p>
 				{{end}}
 			{{end}}
 			<a href="/">Return to home page</a>

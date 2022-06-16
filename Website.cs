@@ -27,7 +27,7 @@ namespace PainterPro
 					return;
 				}
 				drawRequests.Add(drawRequest);
-				context.Response.SetCookie(new Cookie("DrawRequestUuid", drawRequest.uuid, "/qr/"));
+				context.Response.SetCookie(new Cookie("DrawRequestUuid", drawRequest.uuid));
 				HttpResponseMessage? swishResponse = await drawRequest.CreatePaymentRequest();
 				MyConsole.WriteTimestamp();
 				if (swishResponse == null)
@@ -38,44 +38,80 @@ namespace PainterPro
 				MyConsole.Write(" Swish response:");
 				MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
 				MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
-				if (swishResponse.Content != null)
-				{
-					MyConsole.WriteData("	Response Body", await swishResponse.Content.ReadAsStringAsync());
-				}
-
-				if (!swishResponse.IsSuccessStatusCode)
-				{
-					string responseString = await swishResponse.Content.ReadAsStringAsync();
-					Dictionary<string, string>[]? errors = JsonSerializer.Deserialize<Dictionary<string, string>[]>(responseString);
-					context.Send(502, "Bad Gateway", "Received a \"" + (int)swishResponse.StatusCode + ": " + swishResponse.StatusCode.ToString() + "\" error response from Swish servers.", errors);
-				}
+				string responseString = await swishResponse.Content.ReadAsStringAsync();
 
 				MyConsole.color = ConsoleColor.Blue;
 				MyConsole.Write(" Client response:");
+
+				if (!swishResponse.IsSuccessStatusCode)
+				{
+					Dictionary<string, object>[]? errors = JsonSerializer.Deserialize<Dictionary<string, object>[]>(responseString);
+					context.Send((int)swishResponse.StatusCode, swishResponse.StatusCode.ToString(), "Received an error response from Swish servers.", errors);
+				}
+
 				context.SendHtmlFile("pages\\payment.html");
 			}),
 			new Route("qr", new string[] { "GET" }, async (context) =>
 			{
-				// Sends regular files.
-				context.Response.ContentType = "image/png";
-				context.Response.AddHeader("Content-Disposition", "inline; filename = \"swishQrCode.png\"");
-
-				MyConsole.WriteData("Cookie", context.Request.Cookies["OtherCookie"]);
-				Cookie? cookie = context.Request.Cookies["DrawRequestUuid"];
-				if (cookie == null)
+				context.Send(469, "HA", "YOU just got ERRORED!!!", new Dictionary<string, object>[]
 				{
-					context.Send(400, "Bad Request", "The request is missing a \"DrawRequestUuid\" cookie.");
+					new Dictionary<string, object> {
+						{ "test1", "hello" },
+						{ "working", "HELL YEAH!?" }
+					},
+					new Dictionary<string, object> {
+						{ "text", "another error!?" },
+						{ "response", "ALSO <i>HELL</i> YEAH!?" }
+					},
+				});
+				return;
+				// Gathers parameters from client.
+				string? uuid = context.ReadParameter("uuid");
+				if (uuid == null)
+				{
+					context.Send(400, "Bad Request", "The url is missing an UUID, place one as parameter.");
 					return;
 				}
-				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == cookie.Value);
+				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == uuid);
 				if (drawRequest == null)
 				{
-					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + cookie.Value + "\"");
+					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + uuid + "\"");
+					return;
+				}
+				string? sizeString = context.ReadParameter("size");
+				int size = 435; // HERE!
+				int.TryParse(sizeString, out size);
+
+				// Sends qr code request to swish servers and handles potential errors.
+				HttpResponseMessage? swishResponse = await drawRequest.GetPaymentQr(size);
+				MyConsole.WriteTimestamp();
+
+				if (swishResponse == null)
+				{
+					context.Send(504, "Gateway Timeout", "Failed to get response from Swish servers.");
+					return;
+				}
+				MyConsole.Write(" Swish response:");
+				MyConsole.SetStatusColor(swishResponse.IsSuccessStatusCode);
+				MyConsole.WriteMany((int)swishResponse.StatusCode, swishResponse.StatusCode);
+				MyConsole.color = ConsoleColor.Blue;
+				MyConsole.Write(" Client response:");
+
+				if (!swishResponse.IsSuccessStatusCode)
+				{
+					string responseString = await swishResponse.Content.ReadAsStringAsync();
+					Dictionary<string, object>? error = JsonSerializer.Deserialize<Dictionary<string, object>>(responseString);
+					
+					context.Send((int)swishResponse.StatusCode, swishResponse.StatusCode.ToString(), "Received an error response from Swish servers.", error);
 					return;
 				}
 
-				using (Stream imageStream = await drawRequest.GetPaymentQrStream())
+				// Sends image
+				context.Response.ContentType = "image/png";
+				context.Response.AddHeader("Content-Disposition", "inline; filename = \"swishQrCode.png\"");
+				using (Stream? imageStream = await swishResponse.Content.ReadAsStreamAsync())
 				{
+					
 					context.Response.ContentLength64 = imageStream.Length;
 					imageStream.CopyTo(context.Response.OutputStream);
 				}
@@ -187,6 +223,11 @@ namespace PainterPro
 				context.Response.StatusDescription = "Multiple Choices";
 				context.Response.RedirectLocation = path;
 			}
+		}
+
+		public static string? ReadParameter(this HttpListenerContext context, string name)
+		{
+			return HttpUtility.ParseQueryString(context.Request.Url.Query).Get(name);
 		}
 
 		public static Dictionary<string, object>? ReadPost(this HttpListenerContext context)
@@ -303,7 +344,7 @@ namespace PainterPro
 			context.SendBody(JsonSerializer.Serialize(fields), "application/json");
 		}
 
-		public static void Send(this HttpListenerContext context, int code, string message, string? body = null, Dictionary<string, string>[]? errors = null)
+		public static void Send(this HttpListenerContext context, int code, string message, string? body = null, object? errors = null)
 		{
 			context.Response.StatusCode = code;
 			context.Response.StatusDescription = message;
@@ -326,6 +367,7 @@ namespace PainterPro
 			}
 			catch (Exception exception)
 			{
+				MyConsole.color = ConsoleColor.Red;
 				MyConsole.Write("\r\nException during html generation:\r\n");
 				MyConsole.color = ConsoleColor.White;
 				MyConsole.Write(exception);

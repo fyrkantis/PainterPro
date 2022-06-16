@@ -28,3 +28,7 @@ export function SendHttpPostRequest(url, json) {
 export function GetCookie(name) {
 	return document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)")?.pop() || "";
 }
+
+export function PayInApp(uuid) {
+
+}

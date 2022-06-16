@@ -24,10 +24,6 @@ img {
 	max-width: 100%;
 }
 
-fieldset {
-	margin: 0px;
-}
-
 canvas, fieldset {
 	border: solid 2px #000000;
 }
@@ -42,7 +38,8 @@ h4 {font-size: calc(33rem / 25);}
 h5 {font-size: calc(27rem / 25);}
 p, hr, h6 {font-size: 1rem;}
 
-p, hr, h1, h2, h3, h4, h5, h6, form, input, label, canvas {
+p, hr, h1, h2, h3, h4, h5, h6, form, fieldset, input, label, canvas {
+	margin: 0px;
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 }
