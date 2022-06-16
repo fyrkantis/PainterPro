@@ -2,6 +2,7 @@
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using System.Linq;
 
 namespace PainterPro
 {
@@ -59,6 +60,53 @@ namespace PainterPro
 			}
 			return "";
 		}
+
+		/*public static object DoToTree<T>(this T tree, Func<object, object> action)
+		{
+			string? stringObject = tree as string;
+			object[]? array = tree as object[];
+			List<object>? list = tree as List<object>;
+			Dictionary<object, object>? dictionary = tree as Dictionary<object, object>;
+			KeyValuePair<object, object>? pair = tree as KeyValuePair<object, object>?;
+
+			if (stringObject != null)
+			{
+				return action(tree);
+			}
+			else if (array != null) // Array
+			{
+				return ((List<object>)array.ToList().DoToTree(action)).ToArray();
+				for (int i = 0; i < array.Length; i++)
+				{
+					array[i] = array[i].DoToTree(action);
+				}
+				return array;
+			}
+			else if (list != null)
+			{
+				for (int i = 0; i < list.Count; i++)
+				{
+					list[i] = list[i].DoToTree(action);
+				}
+				return list;
+			}
+			else if (dictionary != null)
+			{
+				foreach(KeyValuePair<object, object> row in dictionary)
+				{
+					KeyValuePair<object, object> newRow = new KeyValuePair<object, object>(row.Key.DoToTree(action), row.Value.DoToTree(action));
+					dictionary.Remove(row.Key);
+					dictionary.Add(newRow.Key, newRow.Value);
+				}
+				return dictionary;
+			}
+			else if (pair != null)
+			{
+				pair = new KeyValuePair<object, object>(pair.Value.Key.DoToTree(action), pair.Value.Value.DoToTree(action));
+				return pair;
+			}
+			return action(tree);
+		}*/
 	}
 
 	public static class MyConsole

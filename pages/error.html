@@ -22,13 +22,12 @@
 				<p>{{body}}</p>
 			{{end}}
 			{{if errors}}
-				<p>{{errors | object.typeof}}</p>
-				{{if errors | object.typeof == array | object.typeof}}
+				{{if errors | object.typeof == "array"}}
 					<h2>Additional Errors</h2>
 					{{for error in errors}}
 						<fieldset>
-							<legend>Error {{for.index}}</legend>
-							{{if error | object.typeof == object | object.typeof}}
+							{{if error | object.typeof == "object"}}
+								<legend>Error {{for.index}}</legend>
 								{{for row in error}}
 									<p><b>{{row.key}}:</b> {{row.value}}</p>
 								{{end}}
@@ -37,8 +36,7 @@
 							{{end}}
 						</fieldset>
 					{{end}}
-				{{else if errors | object.typeof == object | object.typeof}}
-					<h2>Additional Info</h2>
+				{{else if errors | object.typeof == "object"}}
 					{{for row in errors}}
 						<p><b>{{row.key}}:</b> {{row.value}}</p>
 					{{end}}

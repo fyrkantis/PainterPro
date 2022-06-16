@@ -11,5 +11,5 @@ const uuid = GetCookie("DrawRequestUuid");
 console.log(uuid);
 //window.location = "swish://paymentrequest?token=" + uuid; // TODO: Add callback url.
 
-qrImage.setAttribute("src", "/qr/?size=232&uuid=" + uuid)
+qrImage.setAttribute("src", "/qr/?size=500&uuid=" + uuid)
 qrImage.style = "";

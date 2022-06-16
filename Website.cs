@@ -53,18 +53,6 @@ namespace PainterPro
 			}),
 			new Route("qr", new string[] { "GET" }, async (context) =>
 			{
-				context.Send(469, "HA", "YOU just got ERRORED!!!", new Dictionary<string, object>[]
-				{
-					new Dictionary<string, object> {
-						{ "test1", "hello" },
-						{ "working", "HELL YEAH!?" }
-					},
-					new Dictionary<string, object> {
-						{ "text", "another error!?" },
-						{ "response", "ALSO <i>HELL</i> YEAH!?" }
-					},
-				});
-				return;
 				// Gathers parameters from client.
 				string? uuid = context.ReadParameter("uuid");
 				if (uuid == null)
@@ -355,7 +343,7 @@ namespace PainterPro
 			};
 			if (errors != null)
 			{
-				parameters.Add("errors", errors);
+				parameters.Add("errors", errors); // TODO: Escape HTML.
 			}
 			if (body != null)
 			{
