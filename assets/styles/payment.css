@@ -1,0 +1,69 @@
+﻿#statusListHolder {
+	width: 15rem;
+	max-width: 25rem;
+	height: 18.125rem;
+
+	position: relative;
+	overflow: hidden;
+
+	flex-grow: 1;
+}
+
+#statusList {
+	left: 0px;
+	bottom: 0px;
+
+	position: absolute;
+
+	margin: 0px;
+	padding: 1rem;
+
+	list-style-type: none;
+	width: 100%;
+}
+
+#statusList * {
+	margin: 0px;
+	padding: 0px;
+
+	font-size: 1.25em;
+}
+
+#statusList li:not(:last-child) .statusName {
+	font-size: 1.25em;
+}
+
+#statusList li:not(:last-child) {
+	color: #888;
+}
+
+#statusList .statusHolder {
+	white-space: nowrap;
+}
+
+#statusList .statusTime {
+	font-family: Consolas, monospace;
+}
+
+#statusList .statusName {
+	font-size: 2em;
+	vertical-align: top;
+	float: right;
+}
+
+#statusList .statusInfo {
+	width: 100%;
+	font-size: 1rem;
+}
+
+#qrHolder {
+	flex-grow: 1;
+}
+
+#qrHolder img {
+	width: 500px;
+}
+
+#qrHolder figcaption {
+	font-size: 2em;
+}

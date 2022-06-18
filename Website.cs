@@ -48,7 +48,7 @@ namespace PainterPro
 					Dictionary<string, object>[]? errors = JsonSerializer.Deserialize<Dictionary<string, object>[]>(responseString);
 					context.Send((int)swishResponse.StatusCode, swishResponse.StatusCode.ToString(), "Received an error response from Swish servers.", errors);
 				}
-
+				drawRequest.status = "Created";
 				context.SendHtmlFile("pages\\payment.html");
 			}),
 			new Route("qr", new string[] { "GET" }, async (context) =>
@@ -63,7 +63,7 @@ namespace PainterPro
 				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == uuid);
 				if (drawRequest == null)
 				{
-					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + uuid + "\"");
+					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + uuid + "\".");
 					return;
 				}
 				string? sizeString = context.ReadParameter("size");
@@ -113,20 +113,53 @@ namespace PainterPro
 				{
 					return;
 				}
-				if (fields.Count <= 0)
+				if (!fields.ContainsKey("uuid"))
 				{
-					fields.Add("text", "Hello?");
+					context.Send(422, "Unprocessable Entity", "\"uuid\" field is missing.");
+					return;
 				}
-				context.SendJson(fields);
+				string? uuid = fields["uuid"].ToString();
+				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == uuid);
+				if (drawRequest == null)
+				{
+					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + uuid + "\".");
+					return;
+				}
+				context.SendJson(new Dictionary<string, object> { { "status", drawRequest.status } });
 			}),
 			new Route("swish", new string[] { "POST"}, (context) =>
 			{
 				// TODO: IP filtering.
-				Dictionary<string, object> fields = context.ReadPost();
+				Dictionary<string, object>? fields = context.ReadPost();
 				if (fields == null)
 				{
 					return;
 				}
+				string[] missing = Util.FindMissingKeys(fields, new string[] { "id", "status" });
+				if (missing.Length > 0)
+				{
+					context.Send(422, "Unprocessable Entity", "The fields " + Util.GrammaticalListing(missing, true) + " are missing.");
+					return;
+				}
+				string? uuid = fields["id"].ToString();
+
+				DrawRequest? drawRequest = drawRequests.Find(drawRequest => drawRequest.uuid == uuid);
+				if (drawRequest == null)
+				{
+					context.Send(404, "Not Found", "There currently is no draw request with the uuid \"" + uuid + "\".");
+					return;
+				}
+				string? status = fields["status"].ToString();
+				if (status == null)
+				{
+					context.Send(422, "Unprocessable Entity", "The field \"status\" could not be converted to a string.");
+					return;
+				}
+				if (status.ToLower() == "paid")
+				{
+					drawRequest.Draw();
+				}
+				drawRequest.status = Util.textInfo.ToTitleCase(status.ToLower());
 				context.Send(204, "No Content", "Thank you, friendly swish servers.");
 			})
 		};
@@ -298,6 +331,12 @@ namespace PainterPro
 			catch (IOException)
 			{
 				context.Send(503, "Service Unavailable", "The server encountered a temporary error when reading \"" + relativePath + "\".");
+				return;
+			}
+			catch (HttpListenerException)
+			{
+				MyConsole.color = ConsoleColor.Red;
+				MyConsole.Write(" Aborted");
 				return;
 			}
 

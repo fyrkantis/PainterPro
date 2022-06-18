@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Linq;
+using System.Globalization;
 
 namespace PainterPro
 {
@@ -23,6 +24,9 @@ namespace PainterPro
 		};
 		static HttpClientHandler swishCertificateHandler = new HttpClientHandler();
 
+		public static CultureInfo cultureInfo = CultureInfo.GetCultureInfo("sv-SE");// "yyyy-MM-dd HH:mm:ss.fff"
+		public static TextInfo textInfo = cultureInfo.TextInfo;
+
 		static Util()
 		{
 			// https://github.com/RickardPettersson/swish-api-csharp/issues/3
@@ -42,12 +46,19 @@ namespace PainterPro
 			return client;
 		}
 
-		public static string GrammaticalListing(IEnumerable<object> collection)
+		public static string GrammaticalListing(IEnumerable<object> collection, bool quotes = false)
 		{
 			int count = collection.Count();
 			if (count >= 2)
 			{
-				return string.Join(", ", collection.Take(count - 1)) + " and " + collection.Last();
+				if (quotes)
+				{
+					return "\"" + string.Join("\", \"", collection.Take(count - 1)) + "\" and \"" + collection.Last() + "\"";
+				}
+				else
+				{
+					return string.Join(", ", collection.Take(count - 1)) + " and " + collection.Last();
+				}
 			}
 			else if (count == 1)
 			{
@@ -56,9 +67,29 @@ namespace PainterPro
 				{
 					return "";
 				}
-				return firstString;
+				if (quotes)
+				{
+					return "\"" + firstString + "\"";
+				}
+				else
+				{
+					return firstString;
+				}
 			}
 			return "";
+		}
+
+		public static string[] FindMissingKeys(Dictionary<string, object> dictionary, string[] keys)
+		{
+			List<string> missing = new List<string>();
+			foreach(string key in keys)
+			{
+				if (!dictionary.ContainsKey(key))
+				{
+					missing.Add(key);
+				}
+			}
+			return missing.ToArray();
 		}
 
 		/*public static object DoToTree<T>(this T tree, Func<object, object> action)
@@ -150,7 +181,7 @@ namespace PainterPro
 		public static void WriteTimestamp()
 		{
 			color = ConsoleColor.White;
-			WriteLine(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+			WriteLine(DateTime.UtcNow.ToString(Util.cultureInfo.DateTimeFormat.SortableDateTimePattern));
 			color = ConsoleColor.Blue;
 		}
 

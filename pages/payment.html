@@ -7,15 +7,31 @@
 
 	<link rel="stylesheet" href="/styles/style.css">
 	<link rel="stylesheet" href="/styles/layout.css">
+	<link rel="stylesheet" href="/styles/payment.css">
 
 	<script src="/scripts/payment.js" type="module"></script>
 </head>
 <body>
 	<main>
 		<article>
-			<h1>Payment page&trade;</h1>
-			<hr>
-			<img id="qr" alt="Swish payment QR Code" style="display: none;">
+			<h1>Payment&trade;</h1>
+			<div class="multiColumn">
+				<fieldset id="statusListHolder">
+					<legend>Status</legend>
+					<ul id="statusList">
+						<li id="statusTemplate" style="display: none;">
+							<p><span class="statusTime">00:00:00</span> <b class="statusName">Pending</b></p>
+							<p class="statusInfoHolder"style="display: none;"><i class="statusInfo">Additional info.</i></p>
+						</li>
+					</ul>
+					<div class="fader top"></div>
+					<div class="fader top"></div>
+				</fieldset>
+				<figure id="qrHolder" style="display: none;">
+					<figcaption>Scan to pay via swish</figcaption>
+					<img id="qr" alt="Swish payment QR Code">
+				</figure>
+			</div>
 		</article>
 	</main>
 </body>

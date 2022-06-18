@@ -1,5 +1,7 @@
 ﻿// Beware: 500+ lines of jank below.
 
+const test = document.getElementById("test");
+
 import { colors, getCanvasPos, getEventCanvasPos } from "/scripts/paintMethods.js";
 
 const canvas = document.getElementById("paintingCanvas");
@@ -499,6 +501,7 @@ canvas.addEventListener("wheel", function (e) {
 var touchDrag = false;
 var touchLastPos;
 var touchStartPos;
+var lastTouchZoom = 0;
 function handleTouch(e) {
 	let canvasPos;
 	if (e.touches.length == 1) {
@@ -525,8 +528,18 @@ canvas.addEventListener("touchstart", handleTouch);
 canvas.addEventListener("touchend", handleTouch);
 canvas.addEventListener("touchcancel", handleTouch);
 
+
+
 canvas.addEventListener("gesturechange", function (e) {
-	globalPos.scale = e.scale; // Currently untested.
+	let newZoom = 100 * (0.5 - e.scale);
+	test.innerHTML = newZoom;
+	globalPos.zoom(newZoom - lastTouchZoom); // Currently untested.
+	draw();
+	lastTouchZoom = newZoom;
+});
+
+canvas.addEventListener("gesturestart", function (e) {
+	lastTouchZoom = 100 * (0.5 - e.scale);
 });
 
 // Resizing support.
